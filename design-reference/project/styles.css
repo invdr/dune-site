@@ -1,0 +1,139 @@
+/* ============================================================
+   DUNE REAL ESTATE — design tokens & base
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;1,300;1,400&display=swap');
+
+:root {
+  /* Brand palette */
+  --wine:        #48070d;
+  --wine-2:      #5e0f17;   /* lifted wine for hovers */
+  --wine-deep:   #2e0407;   /* deeper for gradients */
+  --ink:         #191919;
+  --ink-soft:    #3a3a3a;
+  --sand:        #cbbba0;
+  --sand-2:      #ddd0bb;   /* lighter sand */
+  --sand-deep:   #a8966f;   /* darker sand for text on light */
+  --paper:       #f6f6f6;
+  --paper-2:     #efece6;   /* warm paper */
+  --white:       #ffffff;
+  --line:        #e4e0d8;   /* hairline on light */
+  --line-dark:   rgba(203,187,160,0.18);
+
+  /* Typography */
+  --font: 'Montserrat', -apple-system, system-ui, sans-serif;
+
+  /* Spacing rhythm */
+  --pad: clamp(20px, 5vw, 90px);   /* page side padding */
+  --maxw: 1320px;
+
+  /* Radius */
+  --r-s: 4px;
+  --r-m: 8px;
+  --r-l: 14px;
+
+  /* Shadows */
+  --sh-card: 0 1px 2px rgba(25,25,25,0.04), 0 8px 30px rgba(25,25,25,0.06);
+  --sh-card-h: 0 4px 12px rgba(72,7,13,0.10), 0 18px 50px rgba(25,25,25,0.13);
+  --sh-pop: 0 10px 40px rgba(25,25,25,0.16);
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+}
+
+#root { min-height: 100%; }
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+img { display: block; max-width: 100%; }
+ul { list-style: none; }
+
+/* selection */
+::selection { background: var(--sand); color: var(--wine-deep); }
+
+/* ---- Reusable type helpers ---- */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--sand-deep);
+}
+.display {
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  line-height: 1.04;
+}
+
+/* ---- Layout helpers ---- */
+.wrap { max-width: var(--maxw); margin: 0 auto; padding-left: var(--pad); padding-right: var(--pad); width: 100%; }
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  font-weight: 600; font-size: 13px; letter-spacing: 0.04em;
+  padding: 0 26px; height: 52px; border-radius: var(--r-s);
+  transition: all 0.35s var(--ease);
+  white-space: nowrap;
+}
+.btn-primary { background: var(--wine); color: var(--paper); }
+.btn-primary:hover { background: var(--wine-2); transform: translateY(-1px); box-shadow: 0 10px 26px rgba(72,7,13,0.28); }
+.btn-sand { background: var(--sand); color: var(--wine-deep); }
+.btn-sand:hover { background: var(--sand-2); transform: translateY(-1px); }
+.btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn-ghost:hover { border-color: var(--wine); color: var(--wine); }
+.btn-ghost-light { background: transparent; color: var(--paper); border: 1px solid rgba(246,246,246,0.32); }
+.btn-ghost-light:hover { border-color: var(--sand); color: var(--sand); }
+
+/* ---- Image placeholder (premium duotone dune) ---- */
+.ph {
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 20% 0%, rgba(203,187,160,0.55) 0%, rgba(203,187,160,0) 55%),
+    radial-gradient(140% 120% at 90% 110%, rgba(72,7,13,0.85) 0%, rgba(72,7,13,0) 60%),
+    linear-gradient(135deg, #6b5640 0%, #4a3a2c 45%, #2e0407 100%);
+}
+.ph::after {
+  /* dune ridge */
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(80% 60% at 30% 120%, rgba(203,187,160,0.30), transparent 70%),
+    radial-gradient(60% 50% at 80% -10%, rgba(255,255,255,0.10), transparent 70%);
+}
+.ph-grain {
+  position: absolute; inset: 0; opacity: 0.5; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+.ph-badge {
+  position: absolute; left: 14px; bottom: 14px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 11px; border-radius: 100px;
+  background: rgba(25,25,25,0.42); backdrop-filter: blur(6px);
+  color: #fff; font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
+}
+.ph-label {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(246,246,246,0.30); font-weight: 300; letter-spacing: 0.3em;
+  text-transform: uppercase; font-size: 12px;
+}
+
+/* scrollbar (webkit) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--sand-deep); border-radius: 10px; border: 3px solid var(--paper); }
+::-webkit-scrollbar-track { background: var(--paper); }
+
+/* fade-up entrance utility */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+.rise { animation: fadeUp 0.7s var(--ease) both; }

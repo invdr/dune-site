@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Объект — DUNE Real Estate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/dune.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<!-- ===================== HEADER ===================== -->
+<header class="site-header">
+  <div class="container site-header__top">
+    <a class="brand" href="index.html" aria-label="DUNE Real Estate">
+      <svg class="brand__mark" viewBox="0 0 232 130" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M40 35 L46 59 L70 65 L46 71 L40 95 L34 71 L10 65 L34 59 Z M84 30 L84 100 L112 100 A35 35 0 0 0 112 30 Z M108 48 a17 17 0 1 0 0.1 0 Z"/>
+        <rect x="140" y="60" width="78" height="10" rx="2"></rect>
+        <rect x="196" y="70" width="9" height="13" rx="1.5"></rect>
+        <rect x="210" y="70" width="9" height="11" rx="1.5"></rect>
+      </svg>
+      <span class="brand__name"><span class="brand__word">DUNE</span><span class="brand__sub">REAL ESTATE</span></span>
+    </a>
+    <nav class="nav">
+      <a href="index.html">Главная</a>
+      <a href="catalog.html?dir=new">Новостройки</a>
+      <a href="catalog.html?dir=resale">Вторичка</a>
+      <a href="catalog.html?dir=dubai">Дубай</a>
+      <a href="catalog.html?dir=saudi">Саудовская Аравия</a>
+      <a href="index.html#install">Рассрочка</a>
+    </nav>
+    <div class="header-actions">
+      <div class="header-phone"><a href="tel:+79280000000">+7 928 000-00-00</a><span>Грозный</span></div>
+      <a class="btn btn--sand btn--sm hide-mobile" href="index.html#contact">Оставить заявку</a>
+      <button class="burger" data-burger aria-label="Открыть меню">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<div class="drawer" data-drawer>
+  <div class="drawer__scrim" data-drawer-close></div>
+  <div class="drawer__panel">
+    <div class="drawer__head">
+      <span class="brand__word" style="color:#fff">DUNE</span>
+      <button class="drawer__close" data-drawer-close aria-label="Закрыть">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <a class="dlink" href="catalog.html?dir=new">Новостройки <span>01</span></a>
+    <a class="dlink" href="catalog.html?dir=resale">Вторичка <span>02</span></a>
+    <a class="dlink" href="catalog.html?dir=dubai">Дубай <span>03</span></a>
+    <a class="dlink" href="catalog.html?dir=saudi">Саудовская Аравия <span>04</span></a>
+    <a class="dlink" href="index.html#install">Рассрочка</a>
+    <a class="dlink" href="index.html#contact">Контакты</a>
+    <a class="btn btn--sand btn--block" href="index.html#contact" style="margin-top:24px">Оставить заявку</a>
+  </div>
+</div>
+
+<!-- ===================== PDP ===================== -->
+<main class="pdp container" id="pdp">
+  <div class="pdp__crumbs">
+    <a href="index.html">Главная</a><span>/</span>
+    <a href="catalog.html" id="cr-cat">Каталог</a><span>/</span>
+    <a href="#" id="cr-dir">—</a><span>/</span>
+    <span id="cr-title" style="color:var(--ink)">Объект</span>
+  </div>
+
+  <div class="gallery" id="gallery"></div>
+
+  <div class="pdp__layout">
+    <!-- LEFT -->
+    <div class="pdp__content">
+      <div class="chips" id="pdpTags" style="margin-bottom:6px"></div>
+      <h1 class="pdp__title" id="pdpTitle">—</h1>
+      <div class="pdp__loc" id="pdpLoc"></div>
+
+      <div class="pdp__keyfacts" id="pdpFacts"></div>
+
+      <h2 class="block-t">Об объекте</h2>
+      <p class="pdp__desc" id="pdpDesc"></p>
+
+      <h2 class="block-t">Что входит</h2>
+      <ul class="amenities ul" id="pdpAmen"></ul>
+
+      <h2 class="block-t">Расположение</h2>
+      <div class="map-stub ph" data-ph="city" data-tone="ink">
+        <div class="pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg></div>
+      </div>
+      <p class="muted" id="pdpAddr" style="margin-top:14px;font-size:14px"></p>
+    </div>
+
+    <!-- ASIDE -->
+    <aside class="pdp__aside">
+      <div class="price-card">
+        <div class="price-card__price" id="pdpPrice">—</div>
+        <div class="price-card__permeter" id="pdpPerM"></div>
+        <div class="price-card__inst" id="pdpInst" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 9h18M16 13h2"/></svg>
+          <div><b id="pdpInstSum">Рассрочка 0%</b><span>от застройщика, первый взнос 20%</span></div>
+        </div>
+        <a class="btn btn--primary btn--block" href="index.html#contact">Оставить заявку</a>
+        <a class="btn btn--ghost btn--block" href="tel:+79280000000" style="margin-top:10px">Заказать звонок</a>
+      </div>
+
+      <div class="agent">
+        <div class="agent__ava" id="agentInit">DU</div>
+        <div class="agent__info">
+          <b id="agentName">Личный менеджер</b>
+          <span>Эксперт DUNE по направлению</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- SIMILAR -->
+  <section class="section--tight" style="padding-bottom:0">
+    <div class="sec-head">
+      <div class="sec-head__txt">
+        <span class="eyebrow">Похожие объекты</span>
+        <h2 class="h2" style="margin-top:12px">Ещё в этом <b>направлении</b></h2>
+      </div>
+      <a class="link-more hide-mobile" id="moreLink" href="catalog.html">Смотреть все <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    </div>
+    <div class="cards-row" id="similarGrid"></div>
+  </section>
+</main>
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="site-footer" style="margin-top:clamp(56px,8vw,110px)">
+  <div class="container footer-grid">
+    <div>
+      <a class="brand" href="index.html" style="color:var(--sand)">
+        <svg class="brand__mark" viewBox="0 0 232 130" fill="currentColor" aria-hidden="true" style="width:48px">
+          <path fill-rule="evenodd" d="M40 35 L46 59 L70 65 L46 71 L40 95 L34 71 L10 65 L34 59 Z M84 30 L84 100 L112 100 A35 35 0 0 0 112 30 Z M108 48 a17 17 0 1 0 0.1 0 Z"/>
+          <rect x="140" y="60" width="78" height="10" rx="2"></rect>
+          <rect x="196" y="70" width="9" height="13" rx="1.5"></rect>
+          <rect x="210" y="70" width="9" height="11" rx="1.5"></rect>
+        </svg>
+        <span class="brand__name"><span class="brand__word">DUNE</span><span class="brand__sub">REAL ESTATE</span></span>
+      </a>
+      <p style="color:rgba(255,255,255,.55);font-size:14px;max-width:30ch;margin-top:18px">Агентство недвижимости полного цикла. Грозный, Дубай, Эр-Рияд.</p>
+    </div>
+    <div><h4>Направления</h4><div class="footer-links">
+      <a href="catalog.html?dir=new">Новостройки</a><a href="catalog.html?dir=resale">Вторичка</a>
+      <a href="catalog.html?dir=dubai">Дубай</a><a href="catalog.html?dir=saudi">Саудовская Аравия</a></div></div>
+    <div><h4>Компания</h4><div class="footer-links">
+      <a href="index.html#install">Рассрочка</a><a href="index.html#contact">Подбор объекта</a>
+      <a href="#">О компании</a><a href="#">Отзывы</a></div></div>
+    <div><h4>Контакты</h4><div class="footer-contact">
+      <a href="tel:+79280000000">+7 928 000-00-00</a><br>
+      <a href="mailto:info@dunestate.ru">info@dunestate.ru</a><br>
+      <span style="color:rgba(255,255,255,.6)">г. Грозный, пр. В. Путина, 1<br>Ежедневно 9:00–20:00</span></div></div>
+  </div>
+  <div class="container footer-bottom">
+    <span>© 2025 DUNE Real Estate, dunestate.ru</span>
+    <span>Информация на сайте не является публичной офертой</span>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/app.js"></script>
+<script src="js/property.js"></script>
+</body>
+</html>
