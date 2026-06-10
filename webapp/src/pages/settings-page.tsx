@@ -58,14 +58,20 @@ function SiteSettingsForm() {
   }, [settingsQuery.data])
 
   async function handleSave() {
+    // Don't let a blank/garbage field silently reset the FX markup to 0 —
+    // surface it as an error so the admin sets a real value (default +2 ₽).
     const surcharge = Number.parseInt(usdRubSurcharge, 10)
+    if (!Number.isFinite(surcharge) || surcharge < 0) {
+      toast.error('Надбавка к курсу должна быть числом ≥ 0')
+      return
+    }
     try {
       await updateSettings.mutateAsync({
         telegramBotToken,
         telegramChatId,
         bitrixWebhookUrl,
         bitrixEnabled,
-        usdRubSurcharge: Number.isFinite(surcharge) ? surcharge : 0,
+        usdRubSurcharge: surcharge,
         companyName,
         companyPhone,
         companyContact,

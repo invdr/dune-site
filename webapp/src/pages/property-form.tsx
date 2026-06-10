@@ -1,13 +1,14 @@
 import {
   createPropertySchema,
+  updatePropertySchema,
   type CommercialKind,
   type CreatePropertyRequest,
-  type Currency,
   type LandUse,
   type PropertyDirection,
   type PropertyDto,
   type PropertyStatus,
   type PropertyType,
+  type UpdatePropertyRequest,
   type Utility,
 } from '@dune/contracts'
 import { useState } from 'react'
@@ -30,7 +31,6 @@ import { Typography } from '@/components/ui/typography'
 import {
   commercialKindLabels,
   commercialKinds,
-  currencies,
   currencyLabels,
   defaultCurrencyForDirection,
   directionLabels,
@@ -53,7 +53,6 @@ type Draft = {
   direction: PropertyDirection
   type: PropertyType
   status: PropertyStatus
-  currency: Currency
   rooms: string
   area: string
   floor: string
@@ -111,7 +110,6 @@ function toDraft(property?: PropertyDto): Draft {
     direction: property?.direction ?? 'NEW',
     type: property?.type ?? 'APARTMENT',
     status: property?.status ?? 'DRAFT',
-    currency: property?.currency ?? 'RUB',
     rooms: property ? String(property.rooms) : '0',
     area: property ? String(property.area) : '',
     floor: property?.floor != null ? String(property.floor) : '',
@@ -139,14 +137,18 @@ function toDraft(property?: PropertyDto): Draft {
   }
 }
 
-function toPayload(draft: Draft): CreatePropertyRequest {
+// Site-authored objects expose the full writable surface. `source` is omitted:
+// provenance is fixed at creation, so the editor can never rewrite it (this is
+// what protected QuickDeal mirrors from being silently detached from sync).
+// Currency is derived from direction (§5), never free-typed.
+function toWritable(draft: Draft) {
   return {
     slug: draft.slug.trim(),
     title: draft.title,
     direction: draft.direction,
     type: draft.type,
     status: draft.status,
-    currency: draft.currency,
+    currency: defaultCurrencyForDirection(draft.direction),
     rooms: numOr(draft.rooms, 0),
     area: requiredInt(draft.area),
     floor: intOrNull(draft.floor),
@@ -163,7 +165,6 @@ function toPayload(draft: Draft): CreatePropertyRequest {
     photos: draft.photos,
     badges: draft.badges,
     features: draft.features,
-    source: 'SITE',
     lat: floatOrNull(draft.lat),
     lng: floatOrNull(draft.lng),
     landUse: draft.landUse === '' ? undefined : draft.landUse,
@@ -175,6 +176,90 @@ function toPayload(draft: Draft): CreatePropertyRequest {
   }
 }
 
+// QuickDeal-mirrored objects are a strict mirror: only the site layer is
+// editable here. Every other column is feed-owned and would be overwritten by
+// the next hourly sync, so we never send it (see "Решения обсуждения", §2.4).
+function toSiteLayer(draft: Draft): UpdatePropertyRequest {
+  return {
+    slug: draft.slug.trim(),
+    badges: draft.badges,
+    features: draft.features,
+    premium: draft.premium,
+    placeholderTone: draft.placeholderTone,
+  }
+}
+
+const siteLayerFields = ['slug', 'badges', 'features', 'premium', 'placeholderTone']
+
+// The editable site layer, shared shape for mirrored objects. Site-authored
+// objects edit these inline in the full form instead.
+function SiteLayerSections({
+  draft,
+  errors,
+  update,
+}: {
+  draft: Draft
+  errors: Record<string, string>
+  update: (patch: Partial<Draft>) => void
+}) {
+  return (
+    <FormSection
+      title="Сайтовый слой"
+      description="Эти поля редактируются на сайте и переживают синхронизацию с QuickDeal."
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextField
+          label="Slug (URL)"
+          required
+          value={draft.slug}
+          error={errors.slug}
+          description="Только строчные латинские буквы, цифры и дефис."
+          onChange={(value) => update({ slug: value })}
+        />
+        <TextField
+          label="Тон плейсхолдера"
+          value={draft.placeholderTone}
+          error={errors.placeholderTone}
+          description="Оттенок брендового плейсхолдера, если фото нет."
+          onChange={(value) => update({ placeholderTone: value })}
+        />
+      </div>
+      <SwitchField
+        label="Премиум"
+        description="Премиум-кураторство объекта."
+        checked={draft.premium}
+        onChange={(checked) => update({ premium: checked })}
+      />
+      <StringListEditor
+        label="Бейджи"
+        description="Короткие метки на карточке (напр. «Вид на море»)."
+        values={draft.badges}
+        onChange={(badges) => update({ badges })}
+        placeholder="Добавить бейдж"
+      />
+      <StringListEditor
+        label="Что входит (features)"
+        values={draft.features}
+        onChange={(features) => update({ features })}
+        placeholder="Добавить пункт"
+      />
+    </FormSection>
+  )
+}
+
+function ReadOnlyRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-0.5">
+      <Typography as="span" variant="bodyXs" tone="muted">
+        {label}
+      </Typography>
+      <Typography as="span" variant="bodySm">
+        {value}
+      </Typography>
+    </div>
+  )
+}
+
 export function PropertyForm({
   property,
   isSaving,
@@ -182,25 +267,36 @@ export function PropertyForm({
 }: {
   property?: PropertyDto
   isSaving: boolean
-  onSubmit: (payload: CreatePropertyRequest) => Promise<void>
+  onSubmit: (payload: CreatePropertyRequest | UpdatePropertyRequest) => Promise<void>
 }) {
   const { api } = useAuth()
   const [draft, setDraft] = useState<Draft>(() => toDraft(property))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
 
+  const isEdit = Boolean(property)
   const isMirrored = property?.source === 'QUICKDEAL'
   const isResidential = residentialTypes.includes(draft.type)
   const isLand = draft.type === 'LAND'
   const isCommercial = draft.type === 'COMMERCIAL'
+  // Feed-owned fields are read-only for mirrored objects; only the site layer
+  // (slug/badges/features/premium/placeholderTone) stays editable.
+  const feedLocked = isMirrored
+  const currency = defaultCurrencyForDirection(draft.direction)
 
   function update(patch: Partial<Draft>) {
     setDraft((current) => ({ ...current, ...patch }))
   }
 
-  function changeDirection(direction: PropertyDirection) {
-    // Keep money aligned with the market: RF → ₽, abroad → $ (§5).
-    update({ direction, currency: defaultCurrencyForDirection(direction) })
+  function changeType(type: PropertyType) {
+    // Drop type-specific values when leaving their type so an apartment can't
+    // keep a stale landUse/utilities/commercialKind the backend would accept.
+    update({
+      type,
+      landUse: type === 'LAND' ? draft.landUse : '',
+      utilities: type === 'LAND' ? draft.utilities : [],
+      commercialKind: type === 'COMMERCIAL' ? draft.commercialKind : '',
+    })
   }
 
   function toggleUtility(utility: Utility, checked: boolean) {
@@ -214,8 +310,14 @@ export function PropertyForm({
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setFormError(null)
-    const payload = toPayload(draft)
-    const result = createPropertySchema.safeParse(payload)
+
+    // Mirrored edit → site layer only. Site/new → full writable set.
+    const result = isMirrored
+      ? updatePropertySchema.safeParse(toSiteLayer(draft))
+      : isEdit
+        ? updatePropertySchema.safeParse(toWritable(draft))
+        : createPropertySchema.safeParse(toWritable(draft))
+
     if (!result.success) {
       const nextErrors: Record<string, string> = {}
       for (const issue of result.error.issues) {
@@ -223,7 +325,11 @@ export function PropertyForm({
         if (key && !nextErrors[key]) nextErrors[key] = issue.message
       }
       setErrors(nextErrors)
-      setFormError('Проверьте выделенные поля.')
+      // Site-layer fields a mirrored editor can't see shouldn't read as "hidden".
+      const visibleError = isMirrored
+        ? siteLayerFields.some((field) => nextErrors[field])
+        : true
+      setFormError(visibleError ? 'Проверьте выделенные поля.' : 'Не удалось сохранить объект.')
       return
     }
     setErrors({})
@@ -234,18 +340,57 @@ export function PropertyForm({
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="grid gap-5">
-      {isMirrored && (
+  // Mirrored objects render a read-only feed summary plus the editable site
+  // layer only — there is no way to touch (or accidentally submit) feed fields.
+  if (feedLocked && property) {
+    return (
+      <form onSubmit={handleSubmit} className="grid gap-5">
         <Alert>
           <AlertTitle>Объект из QuickDeal</AlertTitle>
           <AlertDescription>
-            Основные поля приходят из фида и перезапишутся при синхронизации. Здесь стоит менять
-            только «сайтовый слой»: подборки, бейджи, премиум, статус публикации.
+            Карточка — зеркало фида. Поля ниже приходят из QuickDeal и обновляются синхронизацией;
+            редактировать можно только сайтовый слой.
           </AlertDescription>
         </Alert>
-      )}
 
+        <FormSection title="Из фида (только чтение)">
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <ReadOnlyRow label="Заголовок" value={property.title} />
+            <ReadOnlyRow label="Направление" value={directionLabels[property.direction]} />
+            <ReadOnlyRow label="Тип" value={typeLabels[property.type]} />
+            <ReadOnlyRow label="Статус" value={statusLabels[property.status]} />
+            <ReadOnlyRow label="Город" value={property.city} />
+            <ReadOnlyRow
+              label="Цена"
+              value={
+                property.price > 0
+                  ? `${property.price.toLocaleString('ru-RU')} ${property.currency === 'USD' ? '$' : '₽'}`
+                  : 'по запросу'
+              }
+            />
+          </dl>
+        </FormSection>
+
+        <SiteLayerSections draft={draft} errors={errors} update={update} />
+
+        {formError && (
+          <Alert variant="destructive">
+            <AlertTitle>Не сохранено</AlertTitle>
+            <AlertDescription>{formError}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="sticky bottom-0 flex justify-end gap-3 border-t bg-background/95 py-4 backdrop-blur">
+          <Button type="submit" size="lg" disabled={isSaving}>
+            {isSaving ? 'Сохранение…' : 'Сохранить сайтовый слой'}
+          </Button>
+        </div>
+      </form>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="grid gap-5">
       <FormSection title="Основное">
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
@@ -268,7 +413,7 @@ export function PropertyForm({
             required
             value={draft.direction}
             error={errors.direction}
-            onChange={changeDirection}
+            onChange={(value) => update({ direction: value })}
             options={directions.map((value) => ({ value, label: directionLabels[value] }))}
           />
           <SelectField
@@ -276,7 +421,7 @@ export function PropertyForm({
             required
             value={draft.type}
             error={errors.type}
-            onChange={(value) => update({ type: value })}
+            onChange={changeType}
             options={propertyTypes.map((value) => ({ value, label: typeLabels[value] }))}
           />
           <SelectField
@@ -317,7 +462,7 @@ export function PropertyForm({
       <FormSection title="Цена">
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
-            label="Цена"
+            label={`Цена, ${currency === 'USD' ? '$' : '₽'}`}
             required
             inputMode="numeric"
             value={draft.price}
@@ -325,13 +470,14 @@ export function PropertyForm({
             description="0 — отображается как «Цена по запросу»."
             onChange={(value) => update({ price: value })}
           />
-          <SelectField
-            label="Валюта"
-            value={draft.currency}
-            error={errors.currency}
-            onChange={(value) => update({ currency: value })}
-            options={currencies.map((value) => ({ value, label: currencyLabels[value] }))}
-          />
+          <div className="grid gap-1.5">
+            <Typography as="span" variant="label">
+              Валюта
+            </Typography>
+            <Typography variant="bodySm" tone="muted">
+              {currencyLabels[currency]} — определяется направлением (§5).
+            </Typography>
+          </div>
         </div>
       </FormSection>
 

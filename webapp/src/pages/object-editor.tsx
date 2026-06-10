@@ -2,7 +2,7 @@ import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons'
 import { toast } from 'sonner'
-import type { CreatePropertyRequest } from '@dune/contracts'
+import type { CreatePropertyRequest, UpdatePropertyRequest } from '@dune/contracts'
 
 import { LoadingRow, PageContainer, PageHeader } from '@/components/admin/page'
 import { Button } from '@/components/ui/button'
@@ -24,8 +24,9 @@ export function NewObjectPage() {
   const navigate = useNavigate()
   const createProperty = useCreateProperty()
 
-  async function handleSubmit(payload: CreatePropertyRequest) {
-    const { property } = await createProperty.mutateAsync(payload)
+  async function handleSubmit(payload: CreatePropertyRequest | UpdatePropertyRequest) {
+    // New objects always submit the full create payload.
+    const { property } = await createProperty.mutateAsync(payload as CreatePropertyRequest)
     toast.success('Объект создан')
     void navigate({ to: '/objects/$propertyId', params: { propertyId: property.id } })
   }
@@ -46,8 +47,8 @@ export function EditObjectPage() {
   const propertyQuery = useProperty(propertyId)
   const updateProperty = useUpdateProperty(propertyId)
 
-  async function handleSubmit(payload: CreatePropertyRequest) {
-    await updateProperty.mutateAsync(payload)
+  async function handleSubmit(payload: CreatePropertyRequest | UpdatePropertyRequest) {
+    await updateProperty.mutateAsync(payload as UpdatePropertyRequest)
     toast.success('Изменения сохранены')
   }
 

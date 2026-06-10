@@ -6,7 +6,7 @@ import LeadForm from '../../components/LeadForm.astro'
 import { getProperty, getPropertyContact, getPublicSettings, listProperties } from '../../lib/api'
 import { cardHtml, placeholderFor } from '../../lib/card'
 import { metaByDirection, PROPERTY_TYPES } from '../../lib/directions'
-import { floorLabel, mainPrice, perMeter, roomsLabel, secondaryLines, formatRub } from '../../lib/format'
+import { floorLabel, mainPrice, perMeter, roomsLabel, secondaryLines } from '../../lib/format'
 import { ICONS } from '../../lib/icons'
 import { phHtml } from '../../lib/placeholder'
 
@@ -58,10 +58,6 @@ const facts = [
 const priceMain = mainPrice(property.pricing)
 const priceExtra = secondaryLines(property.pricing)
 const perM = perMeter(property)
-const installmentMonthly =
-  property.installment && property.pricing?.lines.find((l) => l.currency === 'RUB')
-    ? formatRub((property.pricing.lines.find((l) => l.currency === 'RUB')!.amount * 0.8) / 24)
-    : null
 
 const contactName = contact?.name ?? 'Менеджер DUNE'
 const initials = contactName
@@ -164,8 +160,8 @@ const description = `${descIntro[property.direction]} ${roomsLabel(property.room
             <div class="price-card__inst">
               <Fragment set:html={ICONS.wallet} />
               <div>
-                <b>{installmentMonthly ? `Рассрочка 0%, от ${installmentMonthly}/мес` : 'Рассрочка 0%'}</b>
-                <span>от застройщика, первый взнос 20%</span>
+                <b>Рассрочка 0%</b>
+                <span>от застройщика — точные условия уточняйте у менеджера</span>
               </div>
             </div>
           )}

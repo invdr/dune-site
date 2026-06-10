@@ -106,6 +106,9 @@ const optionalManagerPhotoSchema = z
 
 // Writable fields without defaults — the source of truth for partial updates.
 // Create layers defaults on top so admins can omit optional fields once.
+// `source` (provenance) is intentionally NOT here: it is set once at create
+// time and is immutable afterwards, so an admin edit can never flip a
+// QuickDeal-mirrored listing to SITE (which would detach it from sync).
 const writableShape = {
   slug: propertySlugSchema,
   direction: propertyDirectionSchema,
@@ -129,7 +132,6 @@ const writableShape = {
   placeholderTone: optionalText(20),
   badges: labelListSchema,
   features: labelListSchema,
-  source: propertySourceSchema,
   lat: optionalLatSchema,
   lng: optionalLngSchema,
   landUse: optionalLandUseSchema,
@@ -151,6 +153,7 @@ export const createPropertySchema = z.object({
   photos: photosSchema.default([]),
   badges: labelListSchema.default([]),
   features: labelListSchema.default([]),
+  // Provenance is fixed at creation; admin-authored listings are always SITE.
   source: propertySourceSchema.default('SITE'),
   utilities: utilitiesSchema.default([]),
 })
