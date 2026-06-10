@@ -24,13 +24,15 @@ const defaultSender: BitrixSender = async (url, body) => {
 }
 
 // Maps a lead onto Bitrix `crm.lead.add` fields. Comment carries the context
-// (direction/object/source) the structured fields cannot hold.
-export function toBitrixLeadFields(lead: Lead): Record<string, unknown> {
+// (direction/object/source) the structured fields cannot hold. `objectLine` is
+// the human-readable title/slug resolved by the caller (falls back to the id).
+export function toBitrixLeadFields(lead: Lead, objectLine: string | null): Record<string, unknown> {
+  const objectText = objectLine ?? (lead.propertyId ? lead.propertyId : null)
   const comment = [
     lead.message ? `Комментарий: ${lead.message}` : null,
     lead.direction ? `Направление: ${lead.direction}` : null,
     lead.source ? `Источник: ${lead.source}` : null,
-    lead.propertyId ? `Объект: ${lead.propertyId}` : null,
+    objectText ? `Объект: ${objectText}` : null,
   ]
     .filter(Boolean)
     .join('\n')
@@ -55,10 +57,10 @@ export class BitrixAdapter {
     return this.config.enabled && Boolean(this.config.webhookUrl)
   }
 
-  async deliver(lead: Lead): Promise<boolean> {
+  async deliver(lead: Lead, objectLine: string | null): Promise<boolean> {
     if (!this.config.enabled || !this.config.webhookUrl) return false
 
     const url = `${this.config.webhookUrl.replace(/\/$/, '')}/crm.lead.add.json`
-    return this.send(url, { fields: toBitrixLeadFields(lead) })
+    return this.send(url, { fields: toBitrixLeadFields(lead, objectLine) })
   }
 }

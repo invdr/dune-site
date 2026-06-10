@@ -45,7 +45,7 @@ export function buildPriceSet(
   }
 
   // Pivot everything through USD and RUB where the rate allows.
-  const usd = baseCurrency === 'USD' ? price : fx.usdToRub ? price / fx.usdToRub : null
+  const usd = baseCurrency === 'USD' ? price : fx.usdToRub != null ? price / fx.usdToRub : null
   const rub = baseCurrency === 'RUB' ? price : fx.usdToRub != null && usd != null ? usd * fx.usdToRub : null
 
   if (direction === 'NEW' || direction === 'RESALE') {

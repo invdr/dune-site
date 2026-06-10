@@ -2,6 +2,10 @@ import type { DbClient } from '../db'
 import { fetchFeed, type FeedFetcher } from './feed'
 import { isImportable, mapListing, slugFromListing, type MappedListing } from './mapper'
 
+// Minimal client surface for slug lookups — satisfied by both the base client
+// and an interactive-transaction client.
+type SlugClient = Pick<DbClient, 'property'>
+
 export type QuickDealConfig = {
   feedUrl: string | null
   token: string | null
@@ -58,53 +62,63 @@ export class QuickDealImporter {
       }
     }
 
+    // An empty payload (no objects at all) is treated as suspicious — a feed
+    // glitch or auth failure shouldn't mass-archive the live catalog, so we keep
+    // the last known state. A feed that returns objects but none flagged for the
+    // site is legitimate (everything delisted) and proceeds to archiving below.
+    if (objects.length === 0) {
+      return { status: 'skipped', reason: 'empty-feed', created: 0, updated: 0, archived: 0 }
+    }
+
     const mapped = objects
       .filter(isImportable)
       .map(mapListing)
       .filter((listing): listing is MappedListing => listing != null)
 
-    // A successful-but-empty feed is treated as suspicious (a glitch shouldn't
-    // archive the whole catalog); skip archiving and report.
-    if (mapped.length === 0) {
-      return { status: 'skipped', reason: 'empty-feed', created: 0, updated: 0, archived: 0 }
-    }
-
     const now = new Date()
-    const seen: string[] = []
-    let created = 0
-    let updated = 0
+    const seen = mapped.map((listing) => listing.externalId)
 
-    for (const listing of mapped) {
-      seen.push(listing.externalId)
-      const existing = await this.db.property.findUnique({
-        where: { source_externalId: { source: 'QUICKDEAL', externalId: listing.externalId } },
-        select: { id: true, publishedAt: true },
+    // One transaction for the whole sync: either the catalog reflects this feed
+    // snapshot atomically, or it stays at the previous state. Avoids a torn mix
+    // of half-synced and stale rows if a write fails mid-run.
+    const { created, updated, archived } = await this.db.$transaction(async (tx) => {
+      let created = 0
+      let updated = 0
+
+      for (const listing of mapped) {
+        const existing = await tx.property.findUnique({
+          where: { source_externalId: { source: 'QUICKDEAL', externalId: listing.externalId } },
+          select: { id: true },
+        })
+
+        const feedData = this.feedData(listing, now)
+
+        if (existing) {
+          // Update writes feed-owned fields only; slug + site layer stay frozen.
+          await tx.property.update({ where: { id: existing.id }, data: feedData })
+          updated += 1
+        } else {
+          await tx.property.create({
+            data: {
+              ...feedData,
+              slug: await this.uniqueSlug(tx, listing),
+              publishedAt: listing.status === 'PUBLISHED' ? now : null,
+            },
+          })
+          created += 1
+        }
+      }
+
+      // Listings that fell out of the feed are archived (page stays for SEO).
+      const archivedResult = await tx.property.updateMany({
+        where: { source: 'QUICKDEAL', externalId: { notIn: seen }, status: { not: 'ARCHIVED' } },
+        data: { status: 'ARCHIVED', syncedAt: now },
       })
 
-      const feedData = this.feedData(listing, now)
-
-      if (existing) {
-        await this.db.property.update({ where: { id: existing.id }, data: feedData })
-        updated += 1
-      } else {
-        await this.db.property.create({
-          data: {
-            ...feedData,
-            slug: await this.uniqueSlug(listing),
-            publishedAt: listing.status === 'PUBLISHED' ? now : null,
-          },
-        })
-        created += 1
-      }
-    }
-
-    // Listings that fell out of the feed are archived (page stays for SEO).
-    const archived = await this.db.property.updateMany({
-      where: { source: 'QUICKDEAL', externalId: { notIn: seen }, status: { not: 'ARCHIVED' } },
-      data: { status: 'ARCHIVED', syncedAt: now },
+      return { created, updated, archived: archivedResult.count }
     })
 
-    return { status: 'ok', created, updated, archived: archived.count }
+    return { status: 'ok', created, updated, archived }
   }
 
   // Feed-owned columns only — deliberately omits slug and every site-layer field.
@@ -142,12 +156,14 @@ export class QuickDealImporter {
     }
   }
 
-  // Generates a slug once for a new listing, disambiguating the rare collision.
-  private async uniqueSlug(listing: MappedListing): Promise<string> {
+  // Generates a slug once for a new listing. The externalId suffix makes most
+  // slugs unique on its own; this loop only disambiguates the rare residual
+  // collision (e.g. two ids sharing the same trailing chars).
+  private async uniqueSlug(tx: SlugClient, listing: MappedListing): Promise<string> {
     const base = slugFromListing(listing.title, listing.externalId)
     let candidate = base
     for (let n = 2; n < 50; n += 1) {
-      const clash = await this.db.property.findUnique({ where: { slug: candidate }, select: { id: true } })
+      const clash = await tx.property.findUnique({ where: { slug: candidate }, select: { id: true } })
       if (!clash) return candidate
       candidate = `${base}-${n}`
     }

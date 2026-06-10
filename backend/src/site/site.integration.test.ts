@@ -35,6 +35,8 @@ maybeDescribe('site, managers, fx integration', () => {
   const authHeaders = (token: string) => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token}` })
 
   beforeEach(async () => {
+    await prisma.lead.deleteMany()
+    await prisma.property.deleteMany()
     await prisma.manager.deleteMany()
     await prisma.fxRate.deleteMany()
     await prisma.siteSettings.deleteMany()
@@ -42,6 +44,23 @@ maybeDescribe('site, managers, fx integration', () => {
     await prisma.authSession.deleteMany()
     await prisma.user.deleteMany()
   })
+
+  async function publishProperty(overrides: Record<string, unknown> = {}) {
+    return prisma.property.create({
+      data: {
+        slug: `p-${Math.random().toString(36).slice(2, 8)}`,
+        direction: 'DUBAI',
+        type: 'APARTMENT',
+        status: 'PUBLISHED',
+        title: 'Marina view',
+        area: 96,
+        city: 'Dubai',
+        price: 450000,
+        currency: 'USD',
+        ...overrides,
+      },
+    })
+  }
 
   afterAll(async () => {
     await prisma.$disconnect()
@@ -124,5 +143,62 @@ maybeDescribe('site, managers, fx integration', () => {
 
     const warm = await app.request('/api/fx')
     expect((await warm.json()).fx.usdToRub).toBeCloseTo(92.5, 4)
+  })
+
+  test('contact resolution follows personal → direction → company', async () => {
+    // 1) Personal manager on the object wins.
+    const personal = await publishProperty({ managerName: 'Личный', managerPhone: '+7 900 111-11-11' })
+    let res = await app.request(`/api/contacts/property/${personal.slug}`)
+    expect((await res.json()).contact).toMatchObject({ source: 'personal', name: 'Личный' })
+
+    // 2) No personal → active direction manager.
+    const noPersonal = await publishProperty()
+    const token = await authToken()
+    await app.request('/api/admin/managers', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ direction: 'DUBAI', name: 'Менеджер направления' }),
+    })
+    res = await app.request(`/api/contacts/property/${noPersonal.slug}`)
+    expect((await res.json()).contact).toMatchObject({ source: 'direction', name: 'Менеджер направления' })
+
+    // 3) No personal, no direction manager → company contact from settings.
+    const saudi = await publishProperty({ direction: 'SAUDI', city: 'Riyadh' })
+    await app.request('/api/admin/settings', {
+      method: 'PUT',
+      headers: authHeaders(token),
+      body: JSON.stringify({ companyName: 'DUNE', companyPhone: '+7 800 000-00-00' }),
+    })
+    res = await app.request(`/api/contacts/property/${saudi.slug}`)
+    expect((await res.json()).contact).toMatchObject({ source: 'company', name: 'DUNE' })
+  })
+
+  test('home content distinguishes clearing tileLinks from omitting it', async () => {
+    const token = await authToken()
+    await app.request('/api/admin/home', {
+      method: 'PUT',
+      headers: authHeaders(token),
+      body: JSON.stringify({ tileLinks: { a: 1 } }),
+    })
+    let body = await (await app.request('/api/home')).json()
+    expect(body.content.tileLinks).toEqual({ a: 1 })
+
+    // Omitting tileLinks leaves it untouched.
+    await app.request('/api/admin/home', {
+      method: 'PUT',
+      headers: authHeaders(token),
+      body: JSON.stringify({ heroTitle: 'DUNE' }),
+    })
+    body = await (await app.request('/api/home')).json()
+    expect(body.content.tileLinks).toEqual({ a: 1 })
+
+    // Explicit null clears it.
+    await app.request('/api/admin/home', {
+      method: 'PUT',
+      headers: authHeaders(token),
+      body: JSON.stringify({ tileLinks: null }),
+    })
+    body = await (await app.request('/api/home')).json()
+    expect(body.content.tileLinks).toBeNull()
   })
 })

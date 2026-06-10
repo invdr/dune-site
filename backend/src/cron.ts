@@ -1,4 +1,5 @@
 import { CurrencyService } from './currency/service'
+import { LeadService } from './leads/service'
 import { QuickDealImporter } from './quickdeal/service'
 import { createBackendRuntime, type BackendRuntime } from './runtime'
 
@@ -20,6 +21,12 @@ const cronTasks = {
     } catch (error) {
       console.error('Cron fx:refresh failed; keeping last known rate.', error)
     }
+  },
+  // Safety net for leads whose background delivery never completed (crash or a
+  // sustained Telegram outage). Idempotent; run every few minutes.
+  'leads:redeliver': async ({ prisma }) => {
+    const { retried } = await new LeadService(prisma).redeliverPending()
+    if (retried > 0) console.log(`Cron leads:redeliver retried ${retried} lead(s).`)
   },
   // Hourly mirror of the QuickDeal feed.
   'quickdeal:sync': async ({ prisma, env }) => {

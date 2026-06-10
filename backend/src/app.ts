@@ -6,6 +6,7 @@ import type { DbClient } from './db'
 import type { AppEnv } from './env'
 import { createAuthRoutes } from './auth/routes'
 import { AuthService } from './auth/service'
+import { createPublicContactRoutes } from './contacts/routes'
 import { CurrencyService } from './currency/service'
 import { createPublicFxRoutes } from './currency/routes'
 import { errorResponse, handleError, validationErrorHook } from './http/errors'
@@ -101,6 +102,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/admin/leads', createAdminLeadRoutes())
   app.route('/api/managers', createPublicManagerRoutes())
   app.route('/api/admin/managers', createAdminManagerRoutes())
+  app.route('/api/contacts', createPublicContactRoutes())
   app.route('/api/site', createPublicSiteRoutes())
   app.route('/api/home', createPublicHomeRoutes())
   app.route('/api/admin/settings', createAdminSettingsRoutes())

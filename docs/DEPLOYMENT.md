@@ -212,6 +212,18 @@ bun run deploy:do:specs backend-final
 
 Use worker components only after a real long-running handler exists. The generator requires `DO_BACKEND_WORKER_RUN_COMMAND` and refuses the template placeholder `bun run start:worker`, because that placeholder exits immediately and should not be deployed as an App Platform worker. Use scheduled jobs only for concrete product tasks, and keep the schedule at DigitalOcean's supported cadence of at least 15 minutes. Both optional components use `backend/Dockerfile`, the repository-root build context, and the same managed PostgreSQL binding as the API. Add Spaces or other runtime secrets to those components when the specific background task needs them.
 
+### DUNE scheduled tasks (Этап 2)
+
+Run these as App Platform scheduled jobs (`bun run start:cron -- <task>`):
+
+- `fx:refresh` — daily (after ~12:00 MSK, when the CBR publishes the next day's rate). Refreshes the cached `USD→RUB`; on failure it logs and keeps the last known value.
+- `quickdeal:sync` — hourly. Mirrors the QuickDeal feed; an unreachable or empty feed keeps the last catalog state (never mass-archives).
+- `leads:redeliver` — every ~15 minutes (DO's minimum cadence). Retries lead notifications whose in-request delivery was lost to a crash or a sustained Telegram outage. Idempotent.
+
+**Where each integration secret lives.** Telegram (`telegramBotToken`/`telegramChatId`), Bitrix24 (`bitrixWebhookUrl`/`bitrixEnabled`), and the USD→RUB surcharge live in the `SiteSettings` DB row so admins can edit them in the panel. The QuickDeal feed URL/token live in backend **env** (`QUICKDEAL_FEED_URL`, `QUICKDEAL_FEED_TOKEN`) — the feed secret is operator-managed, not admin-editable, and must never be committed.
+
+**Lead rate limiter is in-process.** The public `POST /api/leads` limiter (`backend/src/http/rate-limit.ts`) keeps per-IP counters in memory: it is correct for the default single backend instance but resets on every deploy and is not shared across containers. Before raising `instance_count` above 1, move it to a shared store (e.g. Managed Valkey / Postgres) or accept per-instance limits.
+
 ## Real-Time And Horizontal Scaling
 
 Keep production architecture monolithic by default: one backend service can own HTTP routes, auth, persistence, and any WebSocket endpoints. Do not split chat, notifications, or presence into separate services unless there is a proven operational need.

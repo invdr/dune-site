@@ -17,11 +17,18 @@ export class ManagerService {
   // Public lookup for a direction's manager; inactive records are hidden so the
   // card falls through to the company contact.
   async getByDirection(direction: PropertyDirection) {
-    const manager = await this.db.manager.findUnique({ where: { direction } })
-    if (!manager || !manager.active) {
+    const manager = await this.findActiveByDirection(direction)
+    if (!manager) {
       throw new AppError(404, 'NOT_FOUND', 'Manager not found')
     }
-    return toManagerDto(manager)
+    return manager
+  }
+
+  // Non-throwing variant for the resolution chain: returns the active direction
+  // manager or null.
+  async findActiveByDirection(direction: PropertyDirection) {
+    const manager = await this.db.manager.findUnique({ where: { direction } })
+    return manager && manager.active ? toManagerDto(manager) : null
   }
 
   async create(payload: CreateManagerPayload) {

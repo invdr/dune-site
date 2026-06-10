@@ -58,6 +58,22 @@ export type UpdateManagerPayload = z.output<typeof updateManagerSchema>
 export const managerResponseSchema = z.object({ manager: managerSchema })
 export type ManagerResponse = z.infer<typeof managerResponseSchema>
 
+// Resolved contact for a property card: the single manager/contact to show,
+// after applying the precedence personal (object) → direction → company. `source`
+// tells the UI which tier was used; `contact` may be null on a full fallthrough.
+export const resolvedContactSchema = z.object({
+  source: z.enum(['personal', 'direction', 'company']),
+  name: z.string(),
+  phone: z.string().nullable(),
+  photo: z.string().nullable(),
+  contact: z.string().nullable(),
+})
+
+export type ResolvedContactDto = z.infer<typeof resolvedContactSchema>
+
+export const resolvedContactResponseSchema = z.object({ contact: resolvedContactSchema.nullable() })
+export type ResolvedContactResponse = z.infer<typeof resolvedContactResponseSchema>
+
 export const managerListResponseSchema = z.object({
   items: z.array(managerSchema),
 })

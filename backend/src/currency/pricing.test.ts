@@ -2,6 +2,13 @@ import { describe, expect, test } from 'bun:test'
 
 import { buildPriceSet, USD_TO_AED, USD_TO_SAR } from './pricing'
 
+describe('currency pegs', () => {
+  test('match the customer-agreed constants (§14)', () => {
+    expect(USD_TO_AED).toBe(3.6725)
+    expect(USD_TO_SAR).toBe(3.75)
+  })
+})
+
 describe('buildPriceSet', () => {
   const rate = { usdToRub: 94 } // surcharge already folded in by the service
 

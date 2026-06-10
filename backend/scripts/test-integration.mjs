@@ -77,6 +77,7 @@ run(
     'src/properties/properties.integration.test.ts',
     'src/leads/leads.integration.test.ts',
     'src/site/site.integration.test.ts',
+    'src/quickdeal/quickdeal.integration.test.ts',
   ],
   { env },
 )

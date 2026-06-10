@@ -35,8 +35,11 @@ export class LeadService {
       orderBy: { createdAt: 'desc' },
     })
 
-    // Idempotent: re-submits get the success screen without a second lead or a
-    // duplicate Telegram ping.
+    // Idempotent for the common case (double-click / "did it send?"): re-submits
+    // get the success screen without a second lead or a duplicate Telegram ping.
+    // Best-effort only — two truly simultaneous requests can both miss this read
+    // and create two leads; that race is rare and tolerable (a manager dedupes),
+    // so we avoid the cost/awkwardness of a time-bucketed unique constraint.
     if (existing) return toLeadDto(existing)
 
     const lead = await this.db.lead.create({
@@ -66,13 +69,13 @@ export class LeadService {
     if (!lead) return
 
     const settings = await this.db.siteSettings.findUnique({ where: { id: 'singleton' } })
+    const objectLine = await this.objectLine(lead.propertyId)
 
     const notifier = new TelegramNotifier(
       { botToken: settings?.telegramBotToken ?? null, chatId: settings?.telegramChatId ?? null },
       this.deps.telegramSender,
     )
     if (notifier.configured && !lead.telegramSentAt) {
-      const objectLine = await this.objectLine(lead.propertyId)
       if (await notifier.notify(lead, objectLine)) {
         await this.db.lead.update({ where: { id: lead.id }, data: { telegramSentAt: new Date() } })
       }
@@ -83,10 +86,30 @@ export class LeadService {
       this.deps.bitrixSender,
     )
     if (bitrix.enabled && !lead.bitrixSentAt) {
-      if (await bitrix.deliver(lead)) {
+      if (await bitrix.deliver(lead, objectLine)) {
         await this.db.lead.update({ where: { id: lead.id }, data: { bitrixSentAt: new Date() } })
       }
     }
+  }
+
+  // Retries delivery for recent leads whose channels never got the flag — covers
+  // the gap where in-request delivery lost the work (process crash, or the
+  // notifier was down through all retries). Driven by the `leads:redeliver` cron.
+  async redeliverPending(windowHours = 48): Promise<{ retried: number }> {
+    const since = new Date(Date.now() - windowHours * 60 * 60 * 1000)
+    const pending = await this.db.lead.findMany({
+      where: {
+        createdAt: { gt: since },
+        status: { not: 'SPAM' },
+        telegramSentAt: null,
+      },
+      select: { id: true },
+    })
+
+    for (const { id } of pending) {
+      await this.deliver(id).catch(() => {})
+    }
+    return { retried: pending.length }
   }
 
   private async objectLine(propertyId: string | null): Promise<string | null> {
