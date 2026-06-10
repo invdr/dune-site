@@ -1,103 +1,314 @@
 ---
+export const prerender = false
 
+import Base from '../layouts/Base.astro'
+import LeadForm from '../components/LeadForm.astro'
+import { getHomeContent, getPublicSettings, getProperty, listProperties } from '../lib/api'
+import { cardHtml } from '../lib/card'
+import { mainPrice, roomsLabel } from '../lib/format'
+import { phHtml } from '../lib/placeholder'
+import { ICONS } from '../lib/icons'
+import type { PropertyDto } from '@dune/contracts'
+
+// Home content + featured pool + company contact, fetched server-side so the
+// page ships SEO-critical content in the initial HTML.
+const [content, settings] = await Promise.all([getHomeContent(), getPublicSettings()])
+
+let featuredPool: PropertyDto[] = []
+if (content?.chosenSlugs?.length) {
+  const resolved = await Promise.all(content.chosenSlugs.slice(0, 12).map((slug) => getProperty(slug)))
+  featuredPool = resolved.filter((p): p is PropertyDto => p !== null)
+}
+if (!featuredPool.length) {
+  const { items } = await listProperties({ limit: 12, sort: 'newest' })
+  featuredPool = items
+}
+
+const heroTitle = content?.heroTitle
+const heroSubtitle = content?.heroSubtitle
+const heroPhoto = content?.heroImageUrl ?? null
+
+const featuredInitial = featuredPool.slice(0, 6).map((p) => cardHtml(p)).join('')
+const showcase = featuredPool[0] ?? null
+
+const heroBg = phHtml({ kind: 'grozny', sun: true, photo: heroPhoto, eager: true, extraClass: 'hero__bg-ph' })
+const showcaseMedia = showcase
+  ? phHtml({
+      kind: showcase.direction === 'DUBAI' ? 'dubai' : showcase.direction === 'SAUDI' ? 'riyadh' : 'grozny',
+      sun: showcase.direction === 'DUBAI' || showcase.direction === 'SAUDI',
+      photo: showcase.photos[0] ?? null,
+      extraClass: 'hero__card-media',
+      overlay: showcase.badges[0]
+        ? `<span class="tag tag--sand" style="position:absolute;left:14px;top:14px;z-index:3">${showcase.badges[0]}</span>`
+        : '',
+    })
+  : phHtml({ kind: 'dubai', sun: true, photo: null, extraClass: 'hero__card-media' })
+
+const directions = [
+  { key: 'new', idx: '01', ph: 'grozny', tone: '', sun: false, tag: 'Грозный', title: 'Новостройки', text: 'Квартиры от застройщиков Чеченской Республики с рассрочкой 0%.', cta: 'Выбрать жильё', wide: false },
+  { key: 'resale', idx: '02', ph: 'city', tone: 'ink', sun: false, tag: 'Проверено', title: 'Вторичка', text: 'Квартиры и дома с юридической проверкой и честной историей.', cta: 'Подобрать вариант', wide: false },
+  { key: 'dubai', idx: '03', ph: 'dubai', tone: '', sun: true, tag: 'ОАЭ', title: 'Дубай', text: 'Инвестиционные апартаменты и виллы с доходностью от 8% и планом оплаты от застройщика. Резиденция инвестора.', cta: 'Инвестировать в Дубай', wide: true },
+  { key: 'saudi', idx: '04', ph: 'riyadh', tone: 'sand', sun: true, tag: 'KSA', title: 'Саудовская Аравия', text: 'Недвижимость в Эр-Рияде и Джидде на фоне программы Vision 2030 — растущий рынок для долгосрочных инвестиций.', cta: 'Смотреть проекты KSA', wide: true },
+] as const
 ---
 
-<html lang="ru">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>website</title>
-	</head>
-	<body>
-		<main>
-			<section class="hero" aria-labelledby="page-title">
-				<p class="eyebrow">Astro workspace</p>
-				<h1 id="page-title">website</h1>
-				<p class="summary">
-					Публичная SSG/SSR-поверхность проекта на Astro: лендинги, контентные
-					сайты и маркетплейс. Страницы статические по умолчанию, динамические
-					роуты переводятся в SSR через prerender = false.
-				</p>
-			</section>
-		</main>
-	</body>
-</html>
+<Base
+  title="DUNE Real Estate — недвижимость в Грозном, Дубае и Саудовской Аравии"
+  description="Агентство недвижимости DUNE: новостройки и вторичка в Грозном, инвестиции в Дубае и Саудовской Аравии. Рассрочка 0%, подбор под ключ."
+  active="home"
+  companyPhone={settings.companyPhone}
+  companyContact={settings.companyContact}
+>
+  <main id="main">
+    <!-- HERO -->
+    <section class="hero" id="hero" data-hero="immersive">
+      <div class="hero__bg" set:html={heroBg}></div>
+      <div class="hero__veil"></div>
+      <div class="container hero__inner">
+        <div class="hero__text">
+          <span class="hero__pill">
+            <span class="hero__stars">★★★★★</span>
+            <span>4.9 — рейтинг клиентов, 8 лет на&nbsp;рынке</span>
+          </span>
+          {heroTitle ? (
+            <h1 id="heroTitle">{heroTitle}</h1>
+          ) : (
+            <h1 id="heroTitle" set:html={'Недвижимость, которая <b>открывает двери</b>'}></h1>
+          )}
+          {heroSubtitle && <p class="hero__sub">{heroSubtitle}</p>}
+          <div class="hero__actions">
+            <a class="btn btn--sand" href="/catalog">Смотреть каталог</a>
+            <a class="btn btn--light" href="#contact">Бесплатный подбор</a>
+          </div>
+          <div class="hero__stats">
+            <div class="hstat"><b>1 200+</b><span>объектов в базе</span></div>
+            <div class="hstat"><b>4</b><span>направления</span></div>
+            <div class="hstat"><b>8 лет</b><span>на рынке</span></div>
+            <div class="hstat"><b>0%</b><span>рассрочка от&nbsp;застройщика</span></div>
+          </div>
+        </div>
 
-<style>
-	:root {
-		color-scheme: light;
-		font-family:
-			Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-			sans-serif;
-		background: #f6f8fb;
-		color: #14221f;
-	}
+        <aside class="hero__showcase" id="heroShowcase">
+          <article class="hero__card">
+            <Fragment set:html={showcaseMedia} />
+            <div class="hero__card-body">
+              <div class="hero__card-price">{showcase ? mainPrice(showcase.pricing) : '$ 680 000'}</div>
+              <div class="hero__card-title">{showcase ? showcase.title : 'Apartment 1BR, Downtown Dubai'}</div>
+              <div class="hero__card-meta">
+                <span>{showcase ? `${showcase.area} м²` : '71 м²'}</span><i></i>
+                <span>{showcase ? roomsLabel(showcase.rooms) : '1 спальня'}</span><i></i>
+                <span>{showcase?.city ?? 'Dubai'}</span>
+              </div>
+            </div>
+          </article>
+          <div class="hero__trust">
+            <div class="hero__trust-item"><b>0%</b><span>рассрочка от&nbsp;застройщика</span></div>
+            <div class="hero__trust-item"><b>15 мин</b><span>ответ менеджера</span></div>
+          </div>
+        </aside>
+      </div>
 
-	body {
-		margin: 0;
-		min-height: 100vh;
-		background: #f6f8fb;
-	}
+      <!-- SEARCH -->
+      <div class="container">
+        <div class="search" id="search">
+          <div class="search__tabs" role="tablist">
+            <button class="search__tab is-active" data-dir="new">Новостройки</button>
+            <button class="search__tab" data-dir="resale">Вторичка</button>
+            <button class="search__tab" data-dir="dubai">Дубай</button>
+            <button class="search__tab" data-dir="saudi">Саудовская Аравия</button>
+          </div>
+          <form class="search__panel" id="searchForm">
+            <div class="search__field">
+              <label for="f-city">Локация</label>
+              <select name="city" id="f-city">
+                <option value="">Любая</option>
+                <option>Грозный</option>
+                <option>Дубай</option>
+                <option>Эр-Рияд</option>
+                <option>Джидда</option>
+              </select>
+            </div>
+            <div class="search__field">
+              <label for="f-rooms">Комнат</label>
+              <select name="rooms" id="f-rooms">
+                <option value="">Любое</option>
+                <option value="0">Студия</option>
+                <option value="1">1 комната</option>
+                <option value="2">2 комнаты</option>
+                <option value="3">3 комнаты</option>
+                <option value="4">4+ / Дом</option>
+              </select>
+            </div>
+            <div class="search__field" data-price-field>
+              <label for="f-pmin">Цена от, ₽</label>
+              <select name="pmin" id="f-pmin">
+                <option value="">—</option>
+                <option value="3000000">3 млн ₽</option>
+                <option value="6000000">6 млн ₽</option>
+                <option value="10000000">10 млн ₽</option>
+                <option value="30000000">30 млн ₽</option>
+              </select>
+            </div>
+            <div class="search__field" data-price-field>
+              <label for="f-pmax">Цена до, ₽</label>
+              <select name="pmax" id="f-pmax">
+                <option value="">—</option>
+                <option value="6000000">6 млн ₽</option>
+                <option value="10000000">10 млн ₽</option>
+                <option value="30000000">30 млн ₽</option>
+                <option value="999000000">Без лимита</option>
+              </select>
+            </div>
+            <button class="btn btn--primary search__submit" type="submit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg>
+              Найти
+            </button>
+            <div class="search__meta">
+              <span class="search__count">Найдено <b id="searchCount">—</b> по выбранному направлению</span>
+              <a class="link-more" href="/catalog">Открыть весь каталог <Fragment set:html={ICONS.arrow} /></a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
 
-	main {
-		min-height: 100vh;
-		display: grid;
-		align-items: center;
-		padding: 3rem 1.5rem;
-	}
+    <div class="hero-spacer"></div>
 
-	.hero {
-		max-width: 720px;
-	}
+    <!-- DIRECTIONS -->
+    <section class="section container">
+      <div class="sec-head">
+        <div class="sec-head__txt">
+          <span class="eyebrow">Направления</span>
+          <h2 class="h2" set:html={'Четыре рынка — <b>одна команда</b>'}></h2>
+        </div>
+        <a class="link-more hide-mobile" href="/catalog">Смотреть все объекты <Fragment set:html={ICONS.arrow} /></a>
+      </div>
+      <div class="dirs">
+        {directions.map((d) => (
+          <a class:list={['dir-tile', 'fade-up', d.wide && 'dir-tile--wide']} href={`/catalog?dir=${d.key}`}>
+            <Fragment set:html={phHtml({ kind: d.ph, tone: d.tone as '' | 'ink' | 'sand', sun: d.sun, photo: null })} />
+            <span class="dir-tile__idx">{d.idx}</span>
+            <div class="dir-tile__count"><span class="tag tag--ghost">{d.tag}</span></div>
+            <div class="dir-tile__body">
+              <h3>{d.title}</h3>
+              <p set:html={d.text}></p>
+              <span class="dir-tile__go">{d.cta} <Fragment set:html={ICONS.arrow} /></span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
 
-	.eyebrow {
-		margin: 0 0 1rem;
-		font-size: 0.8rem;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: #4c6f5b;
-	}
+    <!-- FEATURED -->
+    <section class="section section--tight" style="background:var(--white);border-block:1px solid var(--line)">
+      <div class="container">
+        <div class="sec-head">
+          <div class="sec-head__txt">
+            <span class="eyebrow">Подборка недели</span>
+            <h2 class="h2" set:html={'Рекомендуем <b>к просмотру</b>'}></h2>
+          </div>
+          <div class="tabs" id="featTabs">
+            <button class="tabs__btn is-active" data-f="all">Все</button>
+            <button class="tabs__btn" data-f="new">Новостройки</button>
+            <button class="tabs__btn" data-f="dubai">Дубай</button>
+            <button class="tabs__btn" data-f="saudi">KSA</button>
+          </div>
+        </div>
+        <div class="cards-row" id="featGrid" set:html={featuredInitial}></div>
+        <div class="center" style="margin-top:44px">
+          <a class="btn btn--ghost" href="/catalog">Показать все объекты</a>
+        </div>
+      </div>
+    </section>
 
-	h1 {
-		margin: 0;
-		font-size: 4rem;
-		line-height: 0.92;
-		letter-spacing: 0;
-	}
+    <!-- INSTALLMENT -->
+    <section class="section container" id="install">
+      <div class="install fade-up">
+        <div class="install__grid">
+          <div class="install__left">
+            <span class="eyebrow">Рассрочка на новостройки</span>
+            <h2 class="h2" set:html={'Покупка <b>без переплат банку</b>'}></h2>
+            <p>Рассрочка напрямую от застройщика — на квартиры в Грозном, апартаменты в Дубае и Эр-Рияде. Первый взнос от 20%, платёж фиксируется на старте.</p>
+            <div class="install__points">
+              <div><span class="n">01</span><div><b>Первый взнос от 20%</b><span>Остаток — равными платежами до сдачи дома</span></div></div>
+              <div><span class="n">02</span><div><b>0% переплаты</b><span>Без процентов и скрытых комиссий по программе застройщика</span></div></div>
+              <div><span class="n">03</span><div><b>Без справок о доходах</b><span>Оформление за 1 день, минимум документов</span></div></div>
+            </div>
+            <a class="btn btn--sand" href="#contact">Рассчитать рассрочку</a>
+          </div>
+          <div class="install__right">
+            <div class="calc" id="calc">
+              <h3>Калькулятор рассрочки</h3>
+              <div class="calc__sub">Предварительный расчёт ежемесячного платежа</div>
+              <div class="calc__row">
+                <div class="lab"><span>Стоимость объекта</span><b id="calcPrice">7 680 000 ₽</b></div>
+                <input type="range" id="calcPriceR" min="3000000" max="30000000" step="100000" value="7680000" aria-label="Стоимость объекта, ₽" />
+              </div>
+              <div class="calc__row">
+                <div class="lab"><span>Первый взнос</span><b id="calcDpLab">20% (1 536 000 ₽)</b></div>
+                <input type="range" id="calcDpR" min="20" max="70" step="5" value="20" aria-label="Первый взнос, %" />
+              </div>
+              <div class="calc__row">
+                <div class="lab"><span>Срок рассрочки</span><b id="calcTermLab">24 мес.</b></div>
+                <input type="range" id="calcTermR" min="6" max="36" step="6" value="24" aria-label="Срок рассрочки, мес." />
+              </div>
+              <div class="calc__out">
+                <span>Платёж в месяц</span>
+                <b id="calcResult">256 000 ₽</b>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-	.summary {
-		margin: 1.5rem 0 0;
-		max-width: 580px;
-		font-size: 1.125rem;
-		line-height: 1.55;
-		color: #3e4a42;
-	}
+    <!-- FEATURES -->
+    <section class="section--tight container">
+      <div class="feat">
+        <div class="feat__item fade-up">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 21V9l9-6 9 6v12M9 21v-6h6v6"></path></svg></div>
+          <b>1 200+</b><h4>Объектов в базе</h4>
+          <p>Квартиры, дома и апартаменты по четырём направлениям — обновляем ежедневно.</p>
+        </div>
+        <div class="feat__item fade-up">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4Z"></path><path d="M9 12l2 2 4-4"></path></svg></div>
+          <b>100%</b><h4>Юридическая чистота</h4>
+          <p>Проверяем каждый объект и сопровождаем сделку от задатка до регистрации.</p>
+        </div>
+        <div class="feat__item fade-up">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></div>
+          <b>1 день</b><h4>Подбор под ключ</h4>
+          <p>Сформируем подборку под ваш бюджет и задачу в течение одного дня.</p>
+        </div>
+        <div class="feat__item fade-up">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h18M3 12l4-4M3 12l4 4M21 6v12"></path></svg></div>
+          <b>0%</b><h4>Рассрочка от&nbsp;застройщика</h4>
+          <p>Беспроцентная рассрочка на новостройки в России и за рубежом.</p>
+        </div>
+      </div>
+    </section>
 
-	@media (min-width: 720px) {
-		main {
-			padding: 5rem;
-		}
+    <!-- LEAD / CONTACT -->
+    <section class="section lead-sec" id="contact">
+      <div class="container lead-grid">
+        <div class="fade-up">
+          <span class="eyebrow" style="color:var(--sand)">Бесплатный подбор</span>
+          <h2 class="h2" set:html={'Расскажите, что ищете — <b>подберём за вас</b>'}></h2>
+          <p class="lead">Оставьте заявку, и персональный менеджер DUNE свяжется с вами в течение 15 минут, уточнит задачу и пришлёт подборку объектов под ваш бюджет.</p>
+          <ul class="lead-pts ul">
+            <li><Fragment set:html={ICONS.check} />Подбор по всем 4 направлениям</li>
+            <li><Fragment set:html={ICONS.check} />Расчёт рассрочки и ипотеки</li>
+            <li><Fragment set:html={ICONS.check} />Сопровождение сделки под ключ</li>
+          </ul>
+        </div>
+        <LeadForm source="home-contact" />
+      </div>
+    </section>
+  </main>
 
-		h1 {
-			font-size: 7rem;
-		}
-
-		.summary {
-			font-size: 1.25rem;
-		}
-	}
-
-	@media (min-width: 1120px) {
-		main {
-			padding: 6rem;
-		}
-
-		h1 {
-			font-size: 9rem;
-		}
-	}
-</style>
+  <script type="application/json" id="featured-data" is:inline set:html={JSON.stringify(featuredPool)}></script>
+  <script>
+    import { initHome } from '../scripts/home'
+    initHome()
+  </script>
+</Base>

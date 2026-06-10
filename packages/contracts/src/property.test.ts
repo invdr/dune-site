@@ -63,6 +63,8 @@ describe('property contracts', () => {
       installment: 'false',
       minPrice: '200000',
       maxPrice: '900000',
+      minArea: '40',
+      maxArea: '120',
       rooms: '2',
       page: '2',
       limit: '12',
@@ -72,6 +74,8 @@ describe('property contracts', () => {
     expect(result.installment).toBe(false)
     expect(result.minPrice).toBe(200_000)
     expect(result.maxPrice).toBe(900_000)
+    expect(result.minArea).toBe(40)
+    expect(result.maxArea).toBe(120)
     expect(result.rooms).toBe(2)
     expect(result.page).toBe(2)
     expect(result.limit).toBe(12)

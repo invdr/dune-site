@@ -194,6 +194,8 @@ const baseListQueryShape = {
   rooms: z.coerce.number().int().min(0).max(50).optional(),
   minPrice: z.coerce.number().int().min(0).optional(),
   maxPrice: z.coerce.number().int().min(0).optional(),
+  minArea: z.coerce.number().int().min(0).optional(),
+  maxArea: z.coerce.number().int().min(0).optional(),
   premium: booleanQuerySchema,
   installment: booleanQuerySchema,
   isNewBuilding: booleanQuerySchema,

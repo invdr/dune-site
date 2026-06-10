@@ -151,6 +151,13 @@ export class PropertyService {
       }
     }
 
+    if (query.minArea !== undefined || query.maxArea !== undefined) {
+      where.area = {
+        ...(query.minArea !== undefined ? { gte: query.minArea } : {}),
+        ...(query.maxArea !== undefined ? { lte: query.maxArea } : {}),
+      }
+    }
+
     if (query.q) {
       where.OR = [
         { title: { contains: query.q, mode: 'insensitive' } },

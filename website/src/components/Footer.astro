@@ -1,0 +1,58 @@
+---
+import Brand from './Brand.astro'
+
+// Company contact can be driven from public settings; falls back to the
+// agency's default copy when settings are empty or unreachable.
+interface Props {
+  companyPhone?: string | null
+  companyContact?: string | null
+}
+const { companyPhone, companyContact } = Astro.props
+const phone = companyPhone ?? '+7 928 000-00-00'
+const telHref = `tel:${phone.replace(/[^+\d]/g, '')}`
+const email = 'info@dunestate.ru'
+const year = new Date().getFullYear()
+---
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <Brand markWidth="48px" />
+      <p style="color:rgba(255,255,255,.55);font-size:14px;max-width:30ch;margin-top:18px">
+        Агентство недвижимости полного цикла. Грозный, Дубай, Эр-Рияд.
+      </p>
+    </div>
+    <div>
+      <h4>Направления</h4>
+      <div class="footer-links">
+        <a href="/catalog?dir=new">Новостройки</a>
+        <a href="/catalog?dir=resale">Вторичка</a>
+        <a href="/catalog?dir=dubai">Дубай</a>
+        <a href="/catalog?dir=saudi">Саудовская Аравия</a>
+      </div>
+    </div>
+    <div>
+      <h4>Компания</h4>
+      <div class="footer-links">
+        <a href="/#install">Рассрочка</a>
+        <a href="/#contact">Подбор объекта</a>
+        <a href="/catalog">Каталог</a>
+        <a href="/favorites">Избранное</a>
+      </div>
+    </div>
+    <div>
+      <h4>Контакты</h4>
+      <div class="footer-contact">
+        <a href={telHref}>{phone}</a><br />
+        <a href={`mailto:${email}`}>{email}</a><br />
+        <span style="color:rgba(255,255,255,.6)">
+          {companyContact ?? 'г. Грозный, пр. В. Путина, 1'}<br />Ежедневно 9:00–20:00
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <span>© {year} DUNE Real Estate, dunestate.ru</span>
+    <span>Информация на сайте не является публичной офертой</span>
+  </div>
+</footer>

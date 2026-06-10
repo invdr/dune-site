@@ -1,0 +1,81 @@
+---
+import { ICONS } from '../lib/icons'
+
+// Reusable lead capture card. `direction` (when provided) locks the lead to a
+// direction and hides the selector — used on the property page. `propertyId`
+// attaches the listing to the lead. Consent is mandatory; the honeypot stays
+// empty for humans. Submission is wired by scripts/leadForm.ts via [data-lead].
+interface Props {
+  heading?: string
+  sub?: string
+  source: string
+  direction?: 'NEW' | 'RESALE' | 'DUBAI' | 'SAUDI'
+  propertyId?: string
+}
+const {
+  heading = 'Оставить заявку',
+  sub = 'Это ни к чему не обязывает',
+  source,
+  direction,
+  propertyId,
+} = Astro.props
+---
+
+<div class="lead-card fade-up" data-lead-card>
+  <h3>{heading}</h3>
+  <div class="sm">{sub}</div>
+  <form
+    class="lead-form"
+    data-lead
+    data-source={source}
+    data-direction={direction}
+    data-property-id={propertyId}
+  >
+    <div class="field">
+      <label for="lead-name">Ваше имя</label>
+      <input id="lead-name" name="name" type="text" autocomplete="name" required placeholder="Как к вам обращаться" />
+    </div>
+    <div class="field">
+      <label for="lead-phone">Телефон</label>
+      <input id="lead-phone" name="phone" type="tel" autocomplete="tel" required placeholder="+7 (___) ___-__-__" />
+    </div>
+    {!direction && (
+      <div class="field">
+        <label for="lead-dir">Направление</label>
+        <select id="lead-dir" name="direction">
+          <option value="">Пока не определился</option>
+          <option value="NEW">Новостройки — Грозный</option>
+          <option value="RESALE">Вторичка — Грозный</option>
+          <option value="DUBAI">Дубай — инвестиции</option>
+          <option value="SAUDI">Саудовская Аравия</option>
+        </select>
+      </div>
+    )}
+    <div class="field">
+      <label for="lead-msg">Комментарий</label>
+      <textarea id="lead-msg" name="message" placeholder="Бюджет, пожелания, количество комнат…"></textarea>
+    </div>
+
+    <!-- honeypot: hidden from humans, must stay empty -->
+    <div class="hp-field" aria-hidden="true">
+      <label for="lead-company">Не заполняйте это поле</label>
+      <input id="lead-company" name="company" type="text" tabindex="-1" autocomplete="off" />
+    </div>
+
+    <div class="lead-consent-row">
+      <input id="lead-consent" name="consent" type="checkbox" required />
+      <label for="lead-consent">
+        Я согласен на обработку персональных данных и принимаю
+        <a href="/#contact">политику обработки персональных данных</a>.
+      </label>
+    </div>
+    <div class="field__err" data-consent-error role="alert" hidden></div>
+
+    <button class="btn btn--primary btn--block" type="submit">Отправить заявку</button>
+  </form>
+  <div class="lead-success" data-lead-success>
+    <div class="ic" set:html={ICONS.check}></div>
+    <h3>Заявка отправлена!</h3>
+    <p>Менеджер DUNE свяжется с вами в течение 15 минут.</p>
+  </div>
+</div>
