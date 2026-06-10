@@ -23,6 +23,7 @@ import {
   createPublicHomeRoutes,
   createPublicSiteRoutes,
 } from './site/routes'
+import { createAdminUploadRoutes } from './storage/routes'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
 
 type AppBindings = {
@@ -107,6 +108,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/home', createPublicHomeRoutes())
   app.route('/api/admin/settings', createAdminSettingsRoutes())
   app.route('/api/admin/home', createAdminHomeRoutes())
+  app.route('/api/admin/uploads', createAdminUploadRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

@@ -1,31 +1,32 @@
 import { e2ePassword, expect, test, uniqueEmail } from '../helpers/test'
 
-test('registers, restores the session, opens protected UI, and logs out', async ({ page }) => {
+const backendUrl = process.env.E2E_BACKEND_URL ?? 'http://127.0.0.1:3000'
+
+// The admin webapp has no public registration (§10): a single shared account is
+// provisioned out of band. We seed one through the API, then drive the login UI.
+test('logs in, restores the session across reload, navigates, and logs out', async ({
+  page,
+  request,
+}) => {
   const email = uniqueEmail()
-  const displayName = 'Web E2E User'
+
+  const registerResponse = await request.post(`${backendUrl}/api/auth/register`, {
+    data: { email, password: e2ePassword, displayName: 'Admin E2E' },
+  })
+  expect(registerResponse.ok()).toBe(true)
 
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: /auth, validation/i })).toBeVisible()
-  await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByText('Invalid email address')).toBeVisible()
-  await expect(page.getByText('Password must be at least 8 characters')).toBeVisible()
+  // Unauthenticated visitors only ever see the login screen, on any route.
+  await expect(page.getByRole('heading', { name: 'Вход' })).toBeVisible()
 
-  await page.getByLabel('Name').fill('A')
   await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(e2ePassword)
-  await page.getByRole('tab', { name: 'Login' }).click()
-  await expect(page.getByLabel('Name')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Login' })).toBeEnabled()
+  await page.getByLabel('Пароль').fill(e2ePassword)
+  await page.getByRole('button', { name: 'Войти' }).click()
 
-  await page.getByRole('tab', { name: 'Register' }).click()
-  await page.getByLabel('Name').fill(displayName)
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(e2ePassword)
-  await page.getByRole('button', { name: 'Create account' }).click()
+  // Logged in → the objects catalog is the dashboard entry point.
+  await expect(page.getByRole('heading', { name: 'Объекты' })).toBeVisible()
 
-  await expect(page.getByRole('heading', { name: 'Session is active' })).toBeVisible()
-  await expect(page.getByText(email)).toBeVisible()
   await expect
     .poll(async () =>
       (await page.context().cookies()).some(
@@ -38,33 +39,16 @@ test('registers, restores the session, opens protected UI, and logs out', async 
     (response) =>
       response.url().endsWith('/api/auth/refresh') && response.request().method() === 'POST',
   )
-  const meAfterReload = page.waitForResponse(
-    (response) => response.url().endsWith('/api/auth/me') && response.request().method() === 'GET',
-  )
 
   await page.reload()
 
   await expect((await refreshAfterReload).status()).toBe(200)
-  await expect((await meAfterReload).status()).toBe(200)
-  await expect(page.getByRole('heading', { name: 'Session is active' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Объекты' })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Open app' }).click()
-  await expect(page.getByRole('heading', { name: displayName })).toBeVisible()
-  await expect(page.getByText(email)).toBeVisible()
+  // Protected navigation works without re-authenticating.
+  await page.getByRole('link', { name: 'Заявки' }).click()
+  await expect(page.getByRole('heading', { name: 'Заявки' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Logout' }).click()
-  await expect(page.getByRole('heading', { name: 'Login required' })).toBeVisible()
-
-  await page.getByRole('link', { name: 'Go to auth' }).click()
-  await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible()
-
-  await page.getByRole('tab', { name: 'Login' }).click()
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill('wrong-password')
-  await page.getByRole('button', { name: 'Login' }).click()
-  await expect(page.getByText('Invalid email or password')).toBeVisible()
-
-  await page.getByLabel('Password').fill(e2ePassword)
-  await page.getByRole('button', { name: 'Login' }).click()
-  await expect(page.getByRole('heading', { name: 'Session is active' })).toBeVisible()
+  await page.getByRole('button', { name: 'Выйти' }).first().click()
+  await expect(page.getByRole('heading', { name: 'Вход' })).toBeVisible()
 })
