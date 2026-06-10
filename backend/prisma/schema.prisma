@@ -35,3 +35,87 @@ model AuthSession {
   @@index([expiresAt], map: "auth_sessions_expires_at_idx")
   @@map("auth_sessions")
 }
+
+// Sales direction for a listing (направление): primary market, resale, and
+// the two foreign investment programs DUNE sells into.
+enum PropertyDirection {
+  NEW
+  RESALE
+  DUBAI
+  SAUDI
+
+  @@map("property_direction")
+}
+
+enum PropertyType {
+  APARTMENT
+  STUDIO
+  HOUSE
+  VILLA
+
+  @@map("property_type")
+}
+
+// Publication lifecycle. Only PUBLISHED listings are exposed on the public site.
+enum PropertyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  SOLD
+
+  @@map("property_status")
+}
+
+enum Currency {
+  RUB
+  USD
+
+  @@map("currency")
+}
+
+model Property {
+  id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  // Human-readable identifier used in public URLs (e.g. "gz-01").
+  slug            String            @unique
+  direction       PropertyDirection
+  type            PropertyType
+  status          PropertyStatus    @default(DRAFT)
+  title           String
+  // Bedroom count; 0 represents a studio.
+  rooms           Int               @default(0)
+  // Living area in whole square metres.
+  area            Int
+  // Floor of the unit and total floors in the building (apartments only).
+  floor           Int?
+  totalFloors     Int?              @map("total_floors")
+  // Residential complex / project name (ЖК).
+  complex         String?
+  city            String
+  district        String?
+  // Listing price expressed in `currency` major units.
+  price           Int
+  currency        Currency          @default(RUB)
+  premium         Boolean           @default(false)
+  // Installment / rassrochka availability.
+  installment     Boolean           @default(false)
+  // Primary-market new build marker (новостройка).
+  isNewBuilding   Boolean           @default(false) @map("is_new_building")
+  // Handover status copy, e.g. "Сдан" or "IV кв. 2026".
+  delivery        String?
+  photos          String[]
+  // Branded gradient tone used when no photos are present ('', 'ink', 'sand').
+  placeholderTone String?           @map("placeholder_tone")
+  // Bespoke marketing labels (e.g. "ROI 8%", "У моря").
+  badges          String[]
+  // Bullet feature list shown on the property page.
+  features        String[]
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  publishedAt     DateTime?         @map("published_at")
+
+  @@index([status], map: "properties_status_idx")
+  @@index([direction], map: "properties_direction_idx")
+  @@index([price], map: "properties_price_idx")
+  @@index([status, direction], map: "properties_status_direction_idx")
+  @@map("properties")
+}

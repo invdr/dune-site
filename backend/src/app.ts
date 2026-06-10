@@ -7,11 +7,14 @@ import type { AppEnv } from './env'
 import { createAuthRoutes } from './auth/routes'
 import { AuthService } from './auth/service'
 import { errorResponse, handleError, validationErrorHook } from './http/errors'
+import { PropertyService } from './properties/service'
+import { createAdminPropertyRoutes, createPublicPropertyRoutes } from './properties/routes'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
 
 type AppBindings = {
   Variables: {
     authService: AuthService
+    propertyService: PropertyService
     env: AppEnv
     storageService: StorageService | null
   }
@@ -24,6 +27,7 @@ type CreateAppOptions = {
 
 export function createApp({ env, prisma }: CreateAppOptions) {
   const authService = new AuthService(prisma, env)
+  const propertyService = new PropertyService(prisma)
   const storageService = createStorageServiceFromEnv(env)
   const app = new OpenAPIHono<AppBindings>({
     defaultHook: validationErrorHook,
@@ -38,13 +42,14 @@ export function createApp({ env, prisma }: CreateAppOptions) {
         return env.CORS_ORIGINS.includes(origin) ? origin : null
       },
       allowHeaders: ['Content-Type', 'Authorization', 'X-Client-Platform'],
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       credentials: true,
       maxAge: 600,
     }),
   )
   app.use('*', async (c, next) => {
     c.set('authService', authService)
+    c.set('propertyService', propertyService)
     c.set('env', env)
     c.set('storageService', storageService)
     await next()
@@ -64,6 +69,8 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   })
 
   app.route('/api/auth', createAuthRoutes())
+  app.route('/api/properties', createPublicPropertyRoutes())
+  app.route('/api/admin/properties', createAdminPropertyRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',
