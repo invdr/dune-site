@@ -49,11 +49,52 @@ enum PropertyDirection {
 
 enum PropertyType {
   APARTMENT
-  STUDIO
   HOUSE
-  VILLA
+  TOWNHOUSE
+  COMMERCIAL
+  LAND
 
   @@map("property_type")
+}
+
+// Provenance of a listing: mirrored from the QuickDeal CRM feed, or authored
+// directly on the site. Feed-sourced rows are read-only on the site.
+enum PropertySource {
+  QUICKDEAL
+  SITE
+
+  @@map("property_source")
+}
+
+// Permitted land-use category for LAND listings (РФ): ИЖС/СНТ/ЛПХ/коммерческая.
+enum LandUse {
+  IZHS
+  SNT
+  LPH
+  COMMERCIAL
+
+  @@map("land_use")
+}
+
+// Kind of commercial unit for COMMERCIAL listings.
+enum CommercialKind {
+  OFFICE
+  RETAIL
+  WAREHOUSE
+  FOOD_SERVICE
+  FREE_PURPOSE
+
+  @@map("commercial_kind")
+}
+
+// Processing state of an inbound lead.
+enum LeadStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  SPAM
+
+  @@map("lead_status")
 }
 
 // Publication lifecycle. Only PUBLISHED listings are exposed on the public site.
@@ -109,13 +150,122 @@ model Property {
   badges          String[]
   // Bullet feature list shown on the property page.
   features        String[]
+  // Listing provenance; SITE rows are admin-authored, QUICKDEAL rows mirror the feed.
+  source          PropertySource    @default(SITE)
+  // Precise map point (§8, §11).
+  lat             Float?
+  lng             Float?
+  // LAND-only facets.
+  landUse         LandUse?          @map("land_use")
+  utilities       String[]
+  // COMMERCIAL-only facet.
+  commercialKind  CommercialKind?   @map("commercial_kind")
+  // QuickDeal feed identity (feedId) and sync metadata; owned by the importer.
+  externalId      String?           @map("external_id")
+  externalSource  String?           @map("external_source")
+  syncedAt        DateTime?         @map("synced_at")
+  leads           Lead[]
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
   publishedAt     DateTime?         @map("published_at")
 
+  // SITE rows carry a null externalId (Postgres treats nulls as distinct, so
+  // many can coexist); QuickDeal ids are unique within the QUICKDEAL source.
+  @@unique([source, externalId], map: "properties_source_external_id_key")
   @@index([status], map: "properties_status_idx")
   @@index([direction], map: "properties_direction_idx")
+  @@index([type], map: "properties_type_idx")
+  @@index([source], map: "properties_source_idx")
   @@index([price], map: "properties_price_idx")
   @@index([status, direction], map: "properties_status_direction_idx")
   @@map("properties")
+}
+
+model Lead {
+  id             String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name           String
+  phone          String
+  email          String?
+  message        String?
+  // Free-form origin tag (page / form type).
+  source         String?
+  // Optional sales line and listing the lead came from.
+  direction      PropertyDirection?
+  propertyId     String?           @db.Uuid @map("property_id")
+  property       Property?         @relation(fields: [propertyId], references: [id], onDelete: SetNull, map: "leads_property_id_fkey")
+  status         LeadStatus        @default(NEW)
+  // Time the visitor accepted PDn processing (152-ФЗ) — required at creation.
+  consentAt      DateTime          @map("consent_at")
+  // Delivery markers: when the lead reached each channel (null = not delivered).
+  telegramSentAt DateTime?         @map("telegram_sent_at")
+  bitrixSentAt   DateTime?         @map("bitrix_sent_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  @@index([status], map: "leads_status_idx")
+  @@index([propertyId], map: "leads_property_id_idx")
+  @@index([createdAt], map: "leads_created_at_idx")
+  @@map("leads")
+}
+
+model Manager {
+  id        String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  // Exactly one manager record per direction (active toggles visibility).
+  direction PropertyDirection @unique(map: "managers_direction_key")
+  name      String
+  photo     String?
+  phone     String?
+  // Messenger or other contact handle.
+  contact   String?
+  active    Boolean           @default(true)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  @@map("managers")
+}
+
+// Singleton config row (id pinned to "singleton"). Integration secrets + FX surcharge.
+model SiteSettings {
+  id               String   @id @default("singleton")
+  telegramBotToken String?  @map("telegram_bot_token")
+  telegramChatId   String?  @map("telegram_chat_id")
+  bitrixWebhookUrl String?  @map("bitrix_webhook_url")
+  bitrixEnabled    Boolean  @default(false) @map("bitrix_enabled")
+  // Added to the CBR USD→RUB rate, in whole roubles (default +2 ₽).
+  usdRubSurcharge  Int      @default(2) @map("usd_rub_surcharge")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// Singleton editorial content for the fixed home-page sections (§6).
+model HomeContent {
+  id           String   @id @default("singleton")
+  heroTitle    String?  @map("hero_title")
+  heroSubtitle String?  @map("hero_subtitle")
+  heroImageUrl String?  @map("hero_image_url")
+  // Curated property selections referenced by slug (editorial; tolerates removal).
+  chosenSlugs  String[] @map("chosen_slugs")
+  // Open-ended bag of fixed-section tile links/images.
+  tileLinks    Json?    @map("tile_links")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("home_content")
+}
+
+// Cached FX rate per currency pair (one current row per pair, upserted).
+model FxRate {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  base      Currency
+  quote     Currency
+  value     Decimal  @db.Decimal(18, 6)
+  // Origin of the rate, e.g. "CBR".
+  source    String
+  fetchedAt DateTime @map("fetched_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([base, quote], map: "fx_rates_base_quote_key")
+  @@map("fx_rates")
 }

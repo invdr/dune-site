@@ -5,8 +5,19 @@ import {
   createPropertySchema,
   propertyListQuerySchema,
   propertySlugSchema,
+  propertyTypeSchema,
   updatePropertySchema,
 } from './property'
+
+const baseCreateInput = {
+  slug: 'gz-01',
+  direction: 'NEW',
+  type: 'APARTMENT',
+  title: '2-комн. квартира, 64 м²',
+  area: 64,
+  city: 'Грозный',
+  price: 7_680_000,
+} as const
 
 describe('property contracts', () => {
   test('applies defaults and normalizes optional text on create', () => {
@@ -75,5 +86,56 @@ describe('property contracts', () => {
   test('caps limit and rejects unknown sort', () => {
     expect(propertyListQuerySchema.safeParse({ limit: '500' }).success).toBe(false)
     expect(propertyListQuerySchema.safeParse({ sort: 'cheapest' }).success).toBe(false)
+  })
+
+  test('property type is the finalized set (rejects removed STUDIO/VILLA)', () => {
+    expect(propertyTypeSchema.safeParse('TOWNHOUSE').success).toBe(true)
+    expect(propertyTypeSchema.safeParse('COMMERCIAL').success).toBe(true)
+    expect(propertyTypeSchema.safeParse('LAND').success).toBe(true)
+    expect(propertyTypeSchema.safeParse('STUDIO').success).toBe(false)
+    expect(propertyTypeSchema.safeParse('VILLA').success).toBe(false)
+  })
+
+  test('a studio is an APARTMENT with rooms = 0', () => {
+    const result = createPropertySchema.parse({ ...baseCreateInput, type: 'APARTMENT', rooms: 0 })
+    expect(result.type).toBe('APARTMENT')
+    expect(result.rooms).toBe(0)
+  })
+
+  test('defaults source to SITE and utilities to empty', () => {
+    const result = createPropertySchema.parse(baseCreateInput)
+    expect(result.source).toBe('SITE')
+    expect(result.utilities).toEqual([])
+    expect(result.lat).toBeNull()
+    expect(result.lng).toBeNull()
+    expect(result.landUse).toBeNull()
+    expect(result.commercialKind).toBeNull()
+  })
+
+  test('accepts category attributes and rejects unknown utility values', () => {
+    const land = createPropertySchema.parse({
+      ...baseCreateInput,
+      type: 'LAND',
+      landUse: 'IZHS',
+      utilities: ['ELECTRICITY', 'GAS', 'WATER'],
+    })
+    expect(land.landUse).toBe('IZHS')
+    expect(land.utilities).toEqual(['ELECTRICITY', 'GAS', 'WATER'])
+
+    expect(
+      createPropertySchema.safeParse({ ...baseCreateInput, utilities: ['INTERNET'] }).success,
+    ).toBe(false)
+  })
+
+  test('admin query accepts category and source filters', () => {
+    const result = adminPropertyListQuerySchema.parse({
+      type: 'COMMERCIAL',
+      commercialKind: 'OFFICE',
+      landUse: 'IZHS',
+      source: 'QUICKDEAL',
+    })
+    expect(result.commercialKind).toBe('OFFICE')
+    expect(result.landUse).toBe('IZHS')
+    expect(result.source).toBe('QUICKDEAL')
   })
 })

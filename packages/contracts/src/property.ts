@@ -1,14 +1,26 @@
 import { z } from 'zod'
 
 export const propertyDirectionSchema = z.enum(['NEW', 'RESALE', 'DUBAI', 'SAUDI'])
-export const propertyTypeSchema = z.enum(['APARTMENT', 'STUDIO', 'HOUSE', 'VILLA'])
+export const propertyTypeSchema = z.enum(['APARTMENT', 'HOUSE', 'TOWNHOUSE', 'COMMERCIAL', 'LAND'])
 export const propertyStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED', 'SOLD'])
 export const currencySchema = z.enum(['RUB', 'USD'])
+// Provenance of a listing: mirrored from QuickDeal, or authored on the site.
+export const propertySourceSchema = z.enum(['QUICKDEAL', 'SITE'])
+// LAND-only: permitted land-use category (ИЖС/СНТ/ЛПХ/коммерческая).
+export const landUseSchema = z.enum(['IZHS', 'SNT', 'LPH', 'COMMERCIAL'])
+// COMMERCIAL-only: kind of unit.
+export const commercialKindSchema = z.enum(['OFFICE', 'RETAIL', 'WAREHOUSE', 'FOOD_SERVICE', 'FREE_PURPOSE'])
+// LAND-only: available utilities (closed set guarded here, stored as String[]).
+export const utilitySchema = z.enum(['ELECTRICITY', 'GAS', 'WATER', 'SEWERAGE'])
 
 export type PropertyDirection = z.infer<typeof propertyDirectionSchema>
 export type PropertyType = z.infer<typeof propertyTypeSchema>
 export type PropertyStatus = z.infer<typeof propertyStatusSchema>
 export type Currency = z.infer<typeof currencySchema>
+export type PropertySource = z.infer<typeof propertySourceSchema>
+export type LandUse = z.infer<typeof landUseSchema>
+export type CommercialKind = z.infer<typeof commercialKindSchema>
+export type Utility = z.infer<typeof utilitySchema>
 
 // URL-safe slug: lowercase alphanumeric segments separated by single hyphens.
 export const propertySlugSchema = z
@@ -42,6 +54,15 @@ export const propertySchema = z.object({
   placeholderTone: z.string().nullable(),
   badges: z.array(z.string()),
   features: z.array(z.string()),
+  source: propertySourceSchema,
+  lat: z.number().nullable(),
+  lng: z.number().nullable(),
+  landUse: landUseSchema.nullable(),
+  commercialKind: commercialKindSchema.nullable(),
+  utilities: z.array(utilitySchema),
+  externalId: z.string().nullable(),
+  externalSource: z.string().nullable(),
+  syncedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   publishedAt: z.string().datetime().nullable(),
@@ -64,6 +85,11 @@ const areaSchema = z.number().int().min(1).max(100_000)
 const floorSchema = z.number().int().min(-5).max(300)
 const optionalFloorSchema = floorSchema.nullish().transform((value) => value ?? null)
 const priceSchema = z.number().int().min(0).max(2_000_000_000)
+const optionalLatSchema = z.number().min(-90).max(90).nullish().transform((value) => value ?? null)
+const optionalLngSchema = z.number().min(-180).max(180).nullish().transform((value) => value ?? null)
+const optionalLandUseSchema = landUseSchema.nullish().transform((value) => value ?? null)
+const optionalCommercialKindSchema = commercialKindSchema.nullish().transform((value) => value ?? null)
+const utilitiesSchema = z.array(utilitySchema).max(8)
 
 // Writable fields without defaults — the source of truth for partial updates.
 // Create layers defaults on top so admins can omit optional fields once.
@@ -90,6 +116,12 @@ const writableShape = {
   placeholderTone: optionalText(20),
   badges: labelListSchema,
   features: labelListSchema,
+  source: propertySourceSchema,
+  lat: optionalLatSchema,
+  lng: optionalLngSchema,
+  landUse: optionalLandUseSchema,
+  commercialKind: optionalCommercialKindSchema,
+  utilities: utilitiesSchema,
 } as const
 
 export const createPropertySchema = z.object({
@@ -103,6 +135,8 @@ export const createPropertySchema = z.object({
   photos: photosSchema.default([]),
   badges: labelListSchema.default([]),
   features: labelListSchema.default([]),
+  source: propertySourceSchema.default('SITE'),
+  utilities: utilitiesSchema.default([]),
 })
 
 export type CreatePropertyRequest = z.input<typeof createPropertySchema>
@@ -136,6 +170,9 @@ export type PropertySort = z.infer<typeof propertySortSchema>
 const baseListQueryShape = {
   direction: propertyDirectionSchema.optional(),
   type: propertyTypeSchema.optional(),
+  landUse: landUseSchema.optional(),
+  commercialKind: commercialKindSchema.optional(),
+  source: propertySourceSchema.optional(),
   currency: currencySchema.optional(),
   city: z.string().trim().min(1).max(120).optional(),
   rooms: z.coerce.number().int().min(0).max(50).optional(),

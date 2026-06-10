@@ -7,8 +7,11 @@
  */
 import { createPrisma } from '../src/db'
 import type {
+  CommercialKind,
   Currency,
+  LandUse,
   PropertyDirection,
+  PropertySource,
   PropertyType,
 } from '../src/generated/prisma/client'
 
@@ -33,6 +36,13 @@ type SeedProperty = {
   placeholderTone: string
   badges: string[]
   features: string[]
+  // Defaults applied in the seed loop when omitted (SITE-authored demo rows).
+  source?: PropertySource
+  lat?: number | null
+  lng?: number | null
+  landUse?: LandUse | null
+  commercialKind?: CommercialKind | null
+  utilities?: string[]
 }
 
 const properties: SeedProperty[] = [
@@ -62,7 +72,7 @@ const properties: SeedProperty[] = [
   {
     slug: 'gz-02',
     direction: 'NEW',
-    type: 'STUDIO',
+    type: 'APARTMENT',
     title: 'Студия, 32 м²',
     rooms: 0,
     area: 32,
@@ -214,6 +224,57 @@ const properties: SeedProperty[] = [
     badges: ['Вторичка'],
     features: ['Высокий этаж', 'Тёплый пол', 'Лоджия 6 м²'],
   },
+  {
+    slug: 'rs-05',
+    direction: 'RESALE',
+    type: 'LAND',
+    title: 'Земельный участок, 8 соток',
+    rooms: 0,
+    area: 800,
+    floor: null,
+    totalFloors: null,
+    complex: 'село Старые-Атаги',
+    city: 'Грозный',
+    district: 'Урус-Мартановский р-н',
+    price: 1_500_000,
+    currency: 'RUB',
+    premium: false,
+    installment: false,
+    isNewBuilding: false,
+    delivery: null,
+    placeholderTone: 'sand',
+    badges: ['Участок', 'ИЖС'],
+    features: ['8 соток', 'Свет и газ рядом', 'Документы готовы'],
+    lat: 43.135193,
+    lng: 45.730526,
+    landUse: 'IZHS',
+    utilities: ['ELECTRICITY', 'GAS', 'WATER'],
+  },
+  {
+    slug: 'rs-06',
+    direction: 'RESALE',
+    type: 'COMMERCIAL',
+    title: 'Офисное помещение, 120 м²',
+    rooms: 0,
+    area: 120,
+    floor: 1,
+    totalFloors: 5,
+    complex: 'пр. Кадырова',
+    city: 'Грозный',
+    district: 'Центр',
+    price: 18_900_000,
+    currency: 'RUB',
+    premium: true,
+    installment: false,
+    isNewBuilding: false,
+    delivery: null,
+    placeholderTone: 'ink',
+    badges: ['Коммерция', 'Центр'],
+    features: ['Отдельный вход', 'Парковка', 'Высокий трафик'],
+    lat: 43.317,
+    lng: 45.694,
+    commercialKind: 'OFFICE',
+  },
   // ---------- Дубай ----------
   {
     slug: 'db-01',
@@ -240,7 +301,7 @@ const properties: SeedProperty[] = [
   {
     slug: 'db-02',
     direction: 'DUBAI',
-    type: 'STUDIO',
+    type: 'APARTMENT',
     title: 'Apartment Studio, 38 м²',
     rooms: 0,
     area: 38,
@@ -284,7 +345,7 @@ const properties: SeedProperty[] = [
   {
     slug: 'db-04',
     direction: 'DUBAI',
-    type: 'VILLA',
+    type: 'HOUSE',
     title: 'Villa 4BR, 340 м²',
     rooms: 4,
     area: 340,
@@ -351,7 +412,7 @@ const properties: SeedProperty[] = [
   {
     slug: 'sa-03',
     direction: 'SAUDI',
-    type: 'VILLA',
+    type: 'HOUSE',
     title: 'Villa 5BR, 420 м²',
     rooms: 4,
     area: 420,
@@ -406,6 +467,12 @@ async function main() {
   try {
     for (const property of properties) {
       const data = {
+        source: 'SITE' as const,
+        lat: null,
+        lng: null,
+        landUse: null,
+        commercialKind: null,
+        utilities: [] as string[],
         ...property,
         status: 'PUBLISHED' as const,
         photos: [],
@@ -419,7 +486,56 @@ async function main() {
       })
     }
 
-    console.log(`Seeded ${properties.length} demo properties`)
+    // One active manager per direction (upsert by the unique direction).
+    const managers: Array<{
+      direction: PropertyDirection
+      name: string
+      phone: string
+      photo: string | null
+      contact: string | null
+    }> = [
+      { direction: 'NEW', name: 'Мехьди Расухаджиев', phone: '+79391016020', photo: null, contact: null },
+      { direction: 'RESALE', name: 'Мехьди Расухаджиев', phone: '+79391016020', photo: null, contact: null },
+      { direction: 'DUBAI', name: 'Иса Дудаев', phone: '+79391031133', photo: null, contact: null },
+      { direction: 'SAUDI', name: 'Иса Дудаев', phone: '+79391031133', photo: null, contact: null },
+    ]
+    for (const manager of managers) {
+      await prisma.manager.upsert({
+        where: { direction: manager.direction },
+        update: { ...manager, active: true },
+        create: { ...manager, active: true },
+      })
+    }
+
+    // Singleton site settings (Bitrix off by default, +2 ₽ FX surcharge).
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      update: {},
+      create: { id: 'singleton', bitrixEnabled: false, usdRubSurcharge: 2 },
+    })
+
+    // Singleton home content with a few curated selections.
+    await prisma.homeContent.upsert({
+      where: { id: 'singleton' },
+      update: {},
+      create: {
+        id: 'singleton',
+        heroTitle: 'Недвижимость в России и за рубежом',
+        heroSubtitle: 'Новостройки и вторичка в России, инвестиции в Дубае и Саудовской Аравии',
+        chosenSlugs: ['gz-01', 'gz-03', 'db-03', 'sa-04'],
+      },
+    })
+
+    // Demo USD→RUB rate so the FX layer has a cached value to read.
+    await prisma.fxRate.upsert({
+      where: { base_quote: { base: 'USD', quote: 'RUB' } },
+      update: { value: 90, source: 'SEED', fetchedAt: new Date() },
+      create: { base: 'USD', quote: 'RUB', value: 90, source: 'SEED', fetchedAt: new Date() },
+    })
+
+    console.log(
+      `Seeded ${properties.length} properties, ${managers.length} managers, site settings, home content and 1 FX rate`,
+    )
   } finally {
     await prisma.$disconnect()
   }

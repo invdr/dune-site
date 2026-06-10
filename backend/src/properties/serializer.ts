@@ -27,6 +27,17 @@ export function toPropertyDto(property: Property): PropertyDto {
     placeholderTone: property.placeholderTone,
     badges: property.badges,
     features: property.features,
+    source: property.source,
+    lat: property.lat,
+    lng: property.lng,
+    landUse: property.landUse,
+    commercialKind: property.commercialKind,
+    // DB column is an unconstrained String[]; the write-side contract guarantees
+    // the values, so narrow to the DTO's enum array here.
+    utilities: property.utilities as PropertyDto['utilities'],
+    externalId: property.externalId,
+    externalSource: property.externalSource,
+    syncedAt: property.syncedAt ? property.syncedAt.toISOString() : null,
     createdAt: property.createdAt.toISOString(),
     updatedAt: property.updatedAt.toISOString(),
     publishedAt: property.publishedAt ? property.publishedAt.toISOString() : null,

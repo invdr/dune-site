@@ -1,3 +1,7 @@
 export * from './auth'
 export * from './errors'
 export * from './property'
+export * from './lead'
+export * from './manager'
+export * from './settings'
+export * from './fxrate'
