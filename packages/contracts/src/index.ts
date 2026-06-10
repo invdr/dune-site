@@ -1,5 +1,6 @@
 export * from './auth'
 export * from './errors'
+export * from './pricing'
 export * from './property'
 export * from './lead'
 export * from './manager'

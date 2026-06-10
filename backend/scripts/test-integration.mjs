@@ -71,6 +71,12 @@ run('bun', ['run', 'prisma:generate'], { env })
 run('bun', ['run', 'prisma:deploy'], { env })
 run(
   'bun',
-  ['test', 'src/auth/auth.integration.test.ts', 'src/properties/properties.integration.test.ts'],
+  [
+    'test',
+    'src/auth/auth.integration.test.ts',
+    'src/properties/properties.integration.test.ts',
+    'src/leads/leads.integration.test.ts',
+    'src/site/site.integration.test.ts',
+  ],
   { env },
 )

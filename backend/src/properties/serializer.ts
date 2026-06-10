@@ -1,8 +1,10 @@
-import type { PropertyDto } from '@dune/contracts'
+import type { PriceSet, PropertyDto } from '@dune/contracts'
 
 import type { Property } from '../generated/prisma/client'
 
-export function toPropertyDto(property: Property): PropertyDto {
+// `pricing` is computed by the currency layer from the live FX context and
+// passed in by the service; admin/raw reads leave it null.
+export function toPropertyDto(property: Property, pricing: PriceSet | null = null): PropertyDto {
   return {
     id: property.id,
     slug: property.slug,
@@ -35,6 +37,10 @@ export function toPropertyDto(property: Property): PropertyDto {
     // DB column is an unconstrained String[]; the write-side contract guarantees
     // the values, so narrow to the DTO's enum array here.
     utilities: property.utilities as PropertyDto['utilities'],
+    managerName: property.managerName,
+    managerPhone: property.managerPhone,
+    managerPhotoUrl: property.managerPhotoUrl,
+    pricing,
     externalId: property.externalId,
     externalSource: property.externalSource,
     syncedAt: property.syncedAt ? property.syncedAt.toISOString() : null,

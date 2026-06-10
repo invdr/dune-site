@@ -160,6 +160,12 @@ model Property {
   utilities       String[]
   // COMMERCIAL-only facet.
   commercialKind  CommercialKind?   @map("commercial_kind")
+  // Per-object personal manager mirrored from the QuickDeal `assigned` field.
+  // First tier of the card's manager chain (personal → direction → company);
+  // feed-owned for QUICKDEAL rows, editable for SITE rows.
+  managerName     String?           @map("manager_name")
+  managerPhone    String?           @map("manager_phone")
+  managerPhotoUrl String?           @map("manager_photo_url")
   // QuickDeal feed identity (feedId) and sync metadata; owned by the importer.
   externalId      String?           @map("external_id")
   externalSource  String?           @map("external_source")
@@ -233,6 +239,12 @@ model SiteSettings {
   bitrixEnabled    Boolean  @default(false) @map("bitrix_enabled")
   // Added to the CBR USD→RUB rate, in whole roubles (default +2 ₽).
   usdRubSurcharge  Int      @default(2) @map("usd_rub_surcharge")
+  // Company-wide fallback contact, shown when neither the object's personal
+  // manager nor the direction manager is available (last tier of the chain).
+  // Publicly readable (unlike the integration secrets above).
+  companyName      String?  @map("company_name")
+  companyPhone     String?  @map("company_phone")
+  companyContact   String?  @map("company_contact")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 

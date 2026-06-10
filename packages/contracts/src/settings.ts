@@ -23,11 +23,27 @@ export const siteSettingsSchema = z.object({
   bitrixWebhookUrl: z.string().nullable(),
   bitrixEnabled: z.boolean(),
   usdRubSurcharge: z.number().int(),
+  companyName: z.string().nullable(),
+  companyPhone: z.string().nullable(),
+  companyContact: z.string().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })
 
 export type SiteSettingsDto = z.infer<typeof siteSettingsSchema>
+
+// Public projection: company fallback contact only. Integration secrets
+// (Telegram/Bitrix) and the FX surcharge are never exposed to the browser.
+export const publicSiteSettingsSchema = z.object({
+  companyName: z.string().nullable(),
+  companyPhone: z.string().nullable(),
+  companyContact: z.string().nullable(),
+})
+
+export type PublicSiteSettingsDto = z.infer<typeof publicSiteSettingsSchema>
+
+export const publicSiteSettingsResponseSchema = z.object({ settings: publicSiteSettingsSchema })
+export type PublicSiteSettingsResponse = z.infer<typeof publicSiteSettingsResponseSchema>
 
 const writableSiteSettingsShape = {
   telegramBotToken: optionalText(200),
@@ -35,6 +51,9 @@ const writableSiteSettingsShape = {
   bitrixWebhookUrl: optionalUrl(2048),
   bitrixEnabled: z.boolean(),
   usdRubSurcharge: z.number().int().min(0).max(1000),
+  companyName: optionalText(160),
+  companyPhone: optionalText(60),
+  companyContact: optionalText(200),
 } as const
 
 export const updateSiteSettingsSchema = z

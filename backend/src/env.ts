@@ -53,6 +53,11 @@ const envSchema = z.object({
   SPACES_UPLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(15 * 60),
   SPACES_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(5 * 60),
   SPACES_PUBLIC_CACHE_CONTROL: stringWithDefault('public, max-age=31536000, immutable'),
+  // QuickDeal native feed (org-scoped URL) and its secret token. Both optional:
+  // the importer stays idle until configured. The secret lives here, never in
+  // the repo (§14).
+  QUICKDEAL_FEED_URL: optionalUrlSchema,
+  QUICKDEAL_FEED_TOKEN: optionalStringSchema,
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)

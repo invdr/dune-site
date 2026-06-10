@@ -6,15 +6,32 @@ import type { DbClient } from './db'
 import type { AppEnv } from './env'
 import { createAuthRoutes } from './auth/routes'
 import { AuthService } from './auth/service'
+import { CurrencyService } from './currency/service'
+import { createPublicFxRoutes } from './currency/routes'
 import { errorResponse, handleError, validationErrorHook } from './http/errors'
+import { LeadService } from './leads/service'
+import { createAdminLeadRoutes, createPublicLeadRoutes } from './leads/routes'
+import { ManagerService } from './managers/service'
+import { createAdminManagerRoutes, createPublicManagerRoutes } from './managers/routes'
 import { PropertyService } from './properties/service'
 import { createAdminPropertyRoutes, createPublicPropertyRoutes } from './properties/routes'
+import { SiteService } from './site/service'
+import {
+  createAdminHomeRoutes,
+  createAdminSettingsRoutes,
+  createPublicHomeRoutes,
+  createPublicSiteRoutes,
+} from './site/routes'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
 
 type AppBindings = {
   Variables: {
     authService: AuthService
     propertyService: PropertyService
+    currencyService: CurrencyService
+    leadService: LeadService
+    managerService: ManagerService
+    siteService: SiteService
     env: AppEnv
     storageService: StorageService | null
   }
@@ -27,7 +44,11 @@ type CreateAppOptions = {
 
 export function createApp({ env, prisma }: CreateAppOptions) {
   const authService = new AuthService(prisma, env)
-  const propertyService = new PropertyService(prisma)
+  const currencyService = new CurrencyService(prisma)
+  const propertyService = new PropertyService(prisma, currencyService)
+  const leadService = new LeadService(prisma)
+  const managerService = new ManagerService(prisma)
+  const siteService = new SiteService(prisma)
   const storageService = createStorageServiceFromEnv(env)
   const app = new OpenAPIHono<AppBindings>({
     defaultHook: validationErrorHook,
@@ -50,6 +71,10 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.use('*', async (c, next) => {
     c.set('authService', authService)
     c.set('propertyService', propertyService)
+    c.set('currencyService', currencyService)
+    c.set('leadService', leadService)
+    c.set('managerService', managerService)
+    c.set('siteService', siteService)
     c.set('env', env)
     c.set('storageService', storageService)
     await next()
@@ -71,6 +96,15 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/auth', createAuthRoutes())
   app.route('/api/properties', createPublicPropertyRoutes())
   app.route('/api/admin/properties', createAdminPropertyRoutes())
+  app.route('/api/fx', createPublicFxRoutes())
+  app.route('/api/leads', createPublicLeadRoutes())
+  app.route('/api/admin/leads', createAdminLeadRoutes())
+  app.route('/api/managers', createPublicManagerRoutes())
+  app.route('/api/admin/managers', createAdminManagerRoutes())
+  app.route('/api/site', createPublicSiteRoutes())
+  app.route('/api/home', createPublicHomeRoutes())
+  app.route('/api/admin/settings', createAdminSettingsRoutes())
+  app.route('/api/admin/home', createAdminHomeRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

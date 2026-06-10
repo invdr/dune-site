@@ -5,9 +5,10 @@ import type {
   UpdatePropertyPayload,
 } from '@dune/contracts'
 
+import type { CurrencyService } from '../currency/service'
 import type { DbClient } from '../db'
 import { AppError } from '../http/errors'
-import { Prisma } from '../generated/prisma/client'
+import { Prisma, type Property } from '../generated/prisma/client'
 import { toPropertyDto } from './serializer'
 
 type ListOptions = {
@@ -16,7 +17,10 @@ type ListOptions = {
 }
 
 export class PropertyService {
-  constructor(private readonly db: DbClient) {}
+  constructor(
+    private readonly db: DbClient,
+    private readonly currency: CurrencyService,
+  ) {}
 
   async list(query: PropertyListQuery | AdminPropertyListQuery, options: ListOptions) {
     const where = this.buildWhere(query, options)
@@ -32,8 +36,11 @@ export class PropertyService {
       this.db.property.count({ where }),
     ])
 
+    // One FX read for the whole page, reused across every listing.
+    const context = await this.currency.getPricingContext()
+
     return {
-      items: items.map(toPropertyDto),
+      items: items.map((item) => this.serialize(item, context)),
       total,
       page: query.page,
       limit: query.limit,
@@ -48,7 +55,7 @@ export class PropertyService {
       throw new AppError(404, 'NOT_FOUND', 'Property not found')
     }
 
-    return toPropertyDto(property)
+    return this.serialize(property, await this.currency.getPricingContext())
   }
 
   async getById(id: string) {
@@ -58,7 +65,12 @@ export class PropertyService {
       throw new AppError(404, 'NOT_FOUND', 'Property not found')
     }
 
-    return toPropertyDto(property)
+    return this.serialize(property, await this.currency.getPricingContext())
+  }
+
+  private serialize(property: Property, context: { usdToRub: number | null }) {
+    const pricing = this.currency.price(property.price, property.currency, property.direction, context)
+    return toPropertyDto(property, pricing)
   }
 
   async create(payload: CreatePropertyPayload) {

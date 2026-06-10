@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { priceSetSchema } from './pricing'
+
 export const propertyDirectionSchema = z.enum(['NEW', 'RESALE', 'DUBAI', 'SAUDI'])
 export const propertyTypeSchema = z.enum(['APARTMENT', 'HOUSE', 'TOWNHOUSE', 'COMMERCIAL', 'LAND'])
 export const propertyStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED', 'SOLD'])
@@ -60,6 +62,13 @@ export const propertySchema = z.object({
   landUse: landUseSchema.nullable(),
   commercialKind: commercialKindSchema.nullable(),
   utilities: z.array(utilitySchema),
+  // Personal manager mirrored from QuickDeal `assigned`; first tier of the
+  // card's manager chain (personal → direction → company).
+  managerName: z.string().nullable(),
+  managerPhone: z.string().nullable(),
+  managerPhotoUrl: z.string().nullable(),
+  // Multi-currency display set computed per direction (null on admin/raw reads).
+  pricing: priceSetSchema.nullable(),
   externalId: z.string().nullable(),
   externalSource: z.string().nullable(),
   syncedAt: z.string().datetime().nullable(),
@@ -90,6 +99,10 @@ const optionalLngSchema = z.number().min(-180).max(180).nullish().transform((val
 const optionalLandUseSchema = landUseSchema.nullish().transform((value) => value ?? null)
 const optionalCommercialKindSchema = commercialKindSchema.nullish().transform((value) => value ?? null)
 const utilitiesSchema = z.array(utilitySchema).max(8)
+const optionalManagerPhotoSchema = z
+  .union([z.string().trim().url().max(2048), z.literal('')])
+  .nullish()
+  .transform((value) => (value === '' || value === undefined || value === null ? null : value))
 
 // Writable fields without defaults — the source of truth for partial updates.
 // Create layers defaults on top so admins can omit optional fields once.
@@ -122,6 +135,9 @@ const writableShape = {
   landUse: optionalLandUseSchema,
   commercialKind: optionalCommercialKindSchema,
   utilities: utilitiesSchema,
+  managerName: optionalText(120),
+  managerPhone: optionalText(60),
+  managerPhotoUrl: optionalManagerPhotoSchema,
 } as const
 
 export const createPropertySchema = z.object({
