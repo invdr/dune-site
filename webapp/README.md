@@ -1,10 +1,6 @@
 # Webapp
 
-The CSR browser client provides the baseline auth flow for future app features. It lives behind authentication and needs no SEO, so it stays client-side rendered; the public, SEO-facing surfaces live in the `website` workspace instead. It consumes the same API contracts as mobile and should keep server-state, form-state, and auth behavior centralized.
-
-## Project Surface Status
-
-This section may be updated during first-run bootstrap. If the root `README.md` marks webapp as deferred, add a short note here explaining that browser work is intentionally paused. When the user activates webapp, remove or rewrite that note before starting browser development.
+The CSR browser client is the DUNE admin panel (objects, leads, home content, settings). It lives behind authentication and needs no SEO, so it stays client-side rendered; the public, SEO-facing surfaces live in the `website` workspace instead. It reuses the shared `@dune/contracts` schemas and keeps server-state, form-state, and auth behavior centralized.
 
 ## Stack
 
@@ -74,9 +70,9 @@ Use the local `shadcn` devDependency pinned in `webapp/package.json` and `bun.lo
 
 ## E2E
 
-The Playwright smoke test lives in `e2e/specs/auth.spec.ts` and verifies client-side auth validation visibility, register/login mode switching, register, refresh after reload, protected UI, logout, invalid login error rendering, and a successful login after logout.
+The Playwright specs live in `e2e/specs/`: admin login + session restore (`auth.spec.ts`), object create/publish → public visibility (`objects.spec.ts`), storefront lead with/without consent (`storefront-lead.spec.ts`), and catalog filtering + home deep-link (`catalog.spec.ts`).
 
-The run starts Docker Compose `postgres_test`, applies migrations to `web_app_demo_test`, starts the backend with `TEST_DATABASE_URL` as its `DATABASE_URL`, starts Vite, and removes the test database volume after the run by default.
+The run starts Docker Compose `postgres_test`, applies migrations to `web_app_demo_test`, starts the backend with `TEST_DATABASE_URL` as its `DATABASE_URL`, starts the webapp (Vite) and the Astro website, and removes the test database volume after the run by default.
 
 First run:
 
