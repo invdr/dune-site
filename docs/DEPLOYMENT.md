@@ -2,7 +2,9 @@
 
 Use this document only after the user has asked for deployment. Read the root [README.md](../README.md) and active surface READMEs first; they record the installed project's active surfaces, deferred surfaces, release targets, and validation scope.
 
-The default production path is DigitalOcean App Platform plus DigitalOcean Managed PostgreSQL. Do not ask the user to choose a cloud provider during first-run setup. Ask for product-facing release details instead:
+For a self-managed Linux VPS (e.g. sweb.ru) without a PaaS, use [DEPLOYMENT_VPS.md](DEPLOYMENT_VPS.md) instead — it covers nginx, systemd services, cron timers, and TLS for the same three surfaces.
+
+The default managed production path is DigitalOcean App Platform plus DigitalOcean Managed PostgreSQL. Do not ask the user to choose a cloud provider during first-run setup. Ask for product-facing release details instead:
 
 - which active surfaces should be released now: backend/API, webapp, website, or full-stack;
 - production domains/URLs for API, webapp, and website;
