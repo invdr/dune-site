@@ -1,0 +1,27 @@
+# Domains are injected from deploy/.env.prod at container start.
+# Caddy requests and renews Let's Encrypt certificates automatically for each
+# real domain whose DNS A/AAAA record points at this VPS and whose ports 80/443
+# are reachable.
+#
+# IP-only / no domain yet: replace a site address below with `:80` (HTTP only)
+# to test before DNS is ready. Automatic HTTPS needs real domain names.
+
+# Public marketing site (Astro, fully static).
+{$WEBSITE_DOMAIN} {
+	encode gzip zstd
+	root * /srv/website
+	file_server
+}
+
+# Browser app (React SPA). Unknown paths fall back to index.html for client-side routing.
+{$WEBAPP_DOMAIN} {
+	encode gzip zstd
+	root * /srv/webapp
+	try_files {path} /index.html
+	file_server
+}
+
+# Backend API, proxied to the internal backend service.
+{$API_DOMAIN} {
+	reverse_proxy backend:8080
+}

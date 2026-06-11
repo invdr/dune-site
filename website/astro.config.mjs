@@ -28,6 +28,6 @@ import { defineConfig } from 'astro/config';
 //   4. Deploy this surface as a runtime service (a container), not a Static
 //      Site, since SSR routes need the Node server. See README "SSR upgrade
 //      path". Note: built-in per-page ISR is not part of the default
-//      DigitalOcean/Yandex static path; use rebuilds or CDN/runtime cache
+//      static deployment path; use rebuilds or CDN/runtime cache
 //      freshness instead.
 export default defineConfig({});

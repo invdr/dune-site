@@ -55,23 +55,23 @@ Keep an explicit username and password in Prisma connection URLs even on local n
 
 `COOKIE_SECURE=false` is appropriate for local HTTP; production should use `COOKIE_SECURE=true` with exact HTTPS origins in `CORS_ORIGINS`. Production browser auth uses `SameSite=None; Secure` refresh cookies, so wildcard, empty, or path-bearing CORS origins are invalid. Cookie-backed `refresh` and `logout` requests also require a trusted `Origin` in production cookie mode.
 
-DigitalOcean Spaces env is optional. Leave `SPACES_*` blank until the product needs uploads, media, exports, or downloads. When storage is active, configure the complete Spaces group in `backend/.env` and follow [../docs/STORAGE.md](../docs/STORAGE.md).
+S3-compatible object storage env is optional. Leave `SPACES_*` blank until the product needs uploads, media, exports, or downloads. When storage is active, configure the complete `SPACES_*` group in `backend/.env` and follow [../docs/STORAGE.md](../docs/STORAGE.md).
 
 ## Runtime Entrypoints
 
 The backend is one workspace with one Prisma schema and one Dockerfile, but it has separate runtime entrypoints:
 
 - API: `bun run start:api`, backed by `src/index.ts`.
-- Worker: `bun run start:worker`, backed by `src/worker.ts`. It is intentionally empty until a real long-running background handler is added, and deployment generation refuses to deploy this placeholder command as an App Platform worker.
+- Worker: `bun run start:worker`, backed by `src/worker.ts`. It is intentionally empty until a real long-running background handler is added; do not run it as a long-running service until then.
 - Cron: `bun run start:cron -- <task>`, backed by `src/cron.ts`. Current local validation tasks are `noop` and `db:ping`.
 
 All entrypoints use `src/runtime.ts` for env loading, Prisma creation, and cleanup, so backend services can be shared without duplicating Prisma schema or database setup.
 
-Primary keys use database-generated UUIDv7 values in PostgreSQL (`@default(dbgenerated("uuidv7()")) @db.Uuid`). Use UUIDv7 consistently for new primary keys and foreign-key references that point at them; do not introduce new `cuid()`, `uuid()`, `serial`, or `bigserial` IDs into this template. PostgreSQL 18+ is required anywhere the backend schema is applied so IDs are generated consistently through Prisma, raw SQL, imports, and future non-Prisma writers.
+Primary keys use database-generated UUIDv7 values in PostgreSQL (`@default(dbgenerated("uuidv7()")) @db.Uuid`). Use UUIDv7 consistently for new primary keys and foreign-key references that point at them; do not introduce new `cuid()`, `uuid()`, `serial`, or `bigserial` IDs into this template. The schema needs a `uuidv7()` function: PostgreSQL 18 provides it natively, and the `uuidv7_compat` migration installs a portable version on PostgreSQL 13–17, so the schema runs on PostgreSQL 13+.
 
 ## Deployment
 
-Production deployment for the backend uses DigitalOcean App Platform with DigitalOcean Managed PostgreSQL by default. Follow the shared runbook in [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) instead of duplicating provider-specific steps here. The root `bun run deploy:do:specs` command generates concrete App Platform specs safely under `.scratch/deploy`; do not hand-substitute secrets or URLs into specs. If the user explicitly chooses Yandex Cloud, use [../docs/YANDEX_CLOUD.md](../docs/YANDEX_CLOUD.md).
+Production deployment runs the backend as a container on a single Linux VPS, alongside PostgreSQL and Caddy, via `deploy/docker-compose.prod.yml`. The compose `backend` service runs `prisma migrate deploy` and then the API. Follow the shared runbook in [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) instead of duplicating steps here.
 
 ## Auth API
 
@@ -87,9 +87,9 @@ Passwords are hashed through `Bun.password` with Argon2id. Access tokens are sho
 
 ## Architecture
 
-`src/index.ts` only starts the API server. `src/runtime.ts` loads env and creates the Prisma client for API, worker, and cron entrypoints. The Hono app is created in `src/app.ts`. The auth feature lives in `src/auth`: routes validate and delegate, the service owns session/user logic, and token helpers isolate JWT and refresh-token mechanics. `src/db.ts` normalizes DigitalOcean Managed PostgreSQL URLs that use `sslmode=require` so the Prisma PostgreSQL adapter uses libpq-compatible TLS handling.
+`src/index.ts` only starts the API server. `src/runtime.ts` loads env and creates the Prisma client for API, worker, and cron entrypoints. The Hono app is created in `src/app.ts`. The auth feature lives in `src/auth`: routes validate and delegate, the service owns session/user logic, and token helpers isolate JWT and refresh-token mechanics. `src/db.ts` normalizes managed PostgreSQL URLs that use `sslmode=require` so the Prisma PostgreSQL adapter uses libpq-compatible TLS handling.
 
-The storage service lives in `src/storage` and wraps DigitalOcean Spaces through S3-compatible SDK calls. Product-specific upload routes should validate ownership and permissions, then delegate object key generation, presigned upload/download URLs, public CDN URL construction, and deletion to that service.
+The storage service lives in `src/storage` and wraps S3-compatible object storage through the AWS SDK. Product-specific upload routes should validate ownership and permissions, then delegate object key generation, presigned upload/download URLs, public CDN URL construction, and deletion to that service.
 
 Prisma migration SQL is not written by hand. Change `prisma/schema.prisma`, then run `bun run prisma:migrate`.
 
@@ -107,5 +107,5 @@ For backend framework, ORM, auth, validation, and runtime questions, consult the
 - [jose documentation](https://github.com/panva/jose)
 - [Docker Compose docs](https://docs.docker.com/compose/)
 - [PostgreSQL Docker Official Image](https://hub.docker.com/_/postgres)
-- [DigitalOcean Spaces docs](https://docs.digitalocean.com/products/spaces/)
-- [DigitalOcean Spaces CDN docs](https://docs.digitalocean.com/products/spaces/how-to/enable-cdn/)
+- [AWS SDK for JavaScript S3 client](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/s3/)
+- [MinIO (self-hosted S3-compatible storage)](https://min.io/docs/minio/linux/index.html)

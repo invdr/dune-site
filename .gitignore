@@ -24,6 +24,7 @@ bun-debug.log*
 .env
 .env.*
 !.env.example
+!deploy/.env.prod.example
 
 # Prisma generated client
 backend/src/generated/prisma/

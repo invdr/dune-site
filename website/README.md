@@ -50,9 +50,9 @@ Astro publishes pages from `src/pages`. Static assets live in `public`.
 
 ## Deployment
 
-When the website has only fully prerendered output and no server islands or runtime-rendered routes, the build output in `website/dist` is fully static. Production deployment uses DigitalOcean App Platform Static Sites from the full Git monorepo branch with `bun install --frozen-lockfile && bun run build:website` and `website/dist` by default. Generate the concrete spec with `bun run deploy:do:specs website`; App Platform builds from Git, not from local `dist`. If website links to the browser app, `PUBLIC_WEBAPP_URL` must be a concrete build-time URL and the website must be redeployed after it changes. Follow the shared runbook in [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md). If the user explicitly chooses Yandex Cloud, deploy the built `website/dist` output through Yandex Object Storage static website hosting plus Cloud CDN by following [../docs/YANDEX_CLOUD.md](../docs/YANDEX_CLOUD.md).
+When the website has only fully prerendered output and no server islands or runtime-rendered routes, the build output in `website/dist` is fully static. Production builds it (`bun run build:website` → `website/dist`) inside `deploy/Dockerfile.web` from the full Git monorepo checkout and serves it from Caddy on the VPS. If the website links to the browser app, `PUBLIC_WEBAPP_URL` must be a concrete build-time URL and the website image must be rebuilt after it changes. Follow the shared runbook in [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md).
 
-On the default DigitalOcean/Yandex path, "regeneration" means redeploying static output or letting CDN/runtime cache refresh. It is not the same product feature as built-in Next/Vercel on-demand ISR.
+On the static deployment path, "regeneration" means rebuilding/redeploying static output or letting CDN/runtime cache refresh. It is not the same product feature as built-in Next/Vercel on-demand ISR.
 
 ### SSR upgrade path
 
@@ -61,9 +61,9 @@ Do this only when a route actually needs server rendering. Do not use SSR just b
 1. Install a Node adapter that matches the installed Astro version: `bun add @astrojs/node --cwd website`. Verify the resolved version's `astro` peer range covers the installed Astro; a major mismatch fails the build.
 2. Register it in `astro.config.mjs` as `adapter: node({ mode: 'standalone' })` and keep `output: 'static'`. With an adapter, `astro build` emits `dist/client` (static assets/HTML) plus `dist/server` (runtime entry), so the static output dir becomes `website/dist/client`.
 3. Mark the dynamic route with `export const prerender = false`.
-4. Deploy this surface as an App Platform **service** (a runtime container, like the backend in [../.do/backend-app.yaml.example](../.do/backend-app.yaml.example)) instead of a Static Site, since SSR routes need the Node server at runtime.
+4. Deploy this surface as its own runtime container (like the backend service in `deploy/docker-compose.prod.yml`) instead of static files, since SSR routes need the Node server at runtime.
 
-Keep dynamic pages fresh with HTTP cache headers (`Cache-Control`, `stale-while-revalidate`) in front of a CDN once the website is deployed as a runtime service. Per-page incremental static regeneration (ISR) is a platform feature of Vercel/Netlify-style deployments and is **not** available on DigitalOcean App Platform Static Sites or Yandex Object Storage, so do not design the default path around it.
+Keep dynamic pages fresh with HTTP cache headers (`Cache-Control`, `stale-while-revalidate`) in front of a CDN once the website is deployed as a runtime service. Per-page incremental static regeneration (ISR) is a platform feature of Vercel/Netlify-style deployments and is **not** available on a plain static file server, so do not design the default path around it.
 
 ## Practice
 

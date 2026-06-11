@@ -1,0 +1,31 @@
+# Builds the static webapp (Vite/React) and website (Astro) bundles, then serves
+# them with Caddy. Build context is the repository root.
+#
+# VITE_API_URL and PUBLIC_WEBAPP_URL are build-time public config: they are baked
+# into the generated bundles, so this image must be rebuilt when they change.
+FROM oven/bun:1 AS build
+WORKDIR /app
+
+# Copy every workspace manifest first so `--frozen-lockfile` matches bun.lock.
+COPY package.json bun.lock bunfig.toml ./
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY backend/package.json backend/package.json
+COPY webapp/package.json webapp/package.json
+COPY website/package.json website/package.json
+COPY mobile/package.json mobile/package.json
+RUN bun install --frozen-lockfile
+
+COPY packages/contracts packages/contracts
+COPY webapp webapp
+COPY website website
+
+ARG VITE_API_URL
+ARG PUBLIC_WEBAPP_URL
+ENV VITE_API_URL=${VITE_API_URL}
+ENV PUBLIC_WEBAPP_URL=${PUBLIC_WEBAPP_URL}
+RUN bun run build:webapp && bun run build:website
+
+FROM caddy:2-alpine
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/webapp/dist /srv/webapp
+COPY --from=build /app/website/dist /srv/website

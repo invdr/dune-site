@@ -31,13 +31,13 @@ Routes should stay thin. Do not put business logic into Hono handlers, UI client
 
 The default runtime shape is a modular monolith: one backend codebase, one database, shared contracts, and clear feature boundaries inside the repository. The backend can expose separate API, worker, and cron entrypoints while still sharing Prisma schema, env validation, services, and contracts. Do not add queues, brokers, or extra infrastructure until the product has a concrete need that the monolith cannot meet clearly.
 
-On the default DigitalOcean production path, run the backend/API as one `apps-s-1vcpu-1gb` App Platform container so the starting infrastructure stays inside the low-cost budget when paired with the smallest production Managed PostgreSQL cluster. Add App Platform worker or scheduled-job components from the same `backend/Dockerfile` only when the product has a concrete background or periodic task. `webapp` and fully prerendered `website` output remain App Platform Static Site components and do not have runtime container sizes. A `website` route with SSR/on-demand rendering or server islands needs a runtime service.
+On the default production path, the whole stack runs on a single Linux VPS via Docker Compose: one backend/API container, PostgreSQL, and Caddy. Add a worker or scheduled task from the same `backend/Dockerfile` only when the product has a concrete background or periodic need. `webapp` and fully prerendered `website` output are built to static files and served by Caddy, so they have no runtime container. A `website` route with SSR/on-demand rendering or server islands needs its own runtime service.
 
 For real-time features such as chat, presence, collaboration, live notifications, or activity feeds, start with the same backend service. A single instance can keep an in-memory registry of its own WebSocket connections. Once the backend runs multiple instances, in-memory fanout is no longer enough: one user may be connected to instance A while another is connected to instance B. At that point, add a managed Redis-compatible Pub/Sub broker between backend instances so each instance can publish domain events and subscribe to events it must deliver to its local sockets.
 
-On the default DigitalOcean path, use DigitalOcean Managed Valkey for this broker. On the optional Yandex Cloud path, use Yandex Managed Service for Valkey. Add this infrastructure only when horizontal scaling and cross-instance WebSocket/SSE delivery are actually required; it is not part of the baseline local setup.
+Use any Redis-compatible broker (such as Redis or Valkey) for this fanout, run as another container or managed service. Add this infrastructure only when horizontal scaling and cross-instance WebSocket/SSE delivery are actually required; it is not part of the baseline single-VPS setup.
 
-Valkey Pub/Sub is only a fanout mechanism. Keep durable chat messages, notifications, collaboration state, and audit-relevant events in PostgreSQL; publish compact event identifiers after commits; and make clients recover by reconnecting and refetching from the API after missed realtime messages.
+The Pub/Sub broker is only a fanout mechanism. Keep durable chat messages, notifications, collaboration state, and audit-relevant events in PostgreSQL; publish compact event identifiers after commits; and make clients recover by reconnecting and refetching from the API after missed realtime messages.
 
 ## Auth
 
@@ -102,9 +102,9 @@ Keep `docker-compose.yml`, `backend/.env.example`, `.env.example`, and [LOCAL_DA
 
 ## Storage
 
-Persistent files and media belong in DigitalOcean Spaces, not in the App Platform container filesystem. The backend owns storage access through `src/storage`, including safe object keys, presigned uploads/downloads, public CDN URL construction, and object deletion. Product features that use uploads should store ownership and retention metadata in PostgreSQL when permissions, deletion, audit, or private access matter.
+Persistent files and media belong in S3-compatible object storage, not on a container filesystem. The backend owns storage access through `src/storage`, including safe object keys, presigned uploads/downloads, public CDN URL construction, and object deletion. Product features that use uploads should store ownership and retention metadata in PostgreSQL when permissions, deletion, audit, or private access matter.
 
-For image optimization, generate app-owned variants in the backend, a worker, or a dedicated App Platform service, then store those variants in Spaces and serve public variants through Spaces CDN. DigitalOcean Spaces and Spaces CDN do not provide first-party dynamic image resizing or format transformation.
+For image optimization, generate app-owned variants in the backend, a worker, or a dedicated image service, then store those variants in object storage and serve public variants through a CDN. Object storage and CDNs do not provide first-party dynamic image resizing or format transformation. See [STORAGE.md](STORAGE.md).
 
 ## Current Upstream Documentation
 
@@ -116,9 +116,8 @@ For framework and API questions, consult the current upstream documentation link
 - [Prisma docs](https://www.prisma.io/docs)
 - [PostgreSQL docs](https://www.postgresql.org/docs/)
 - [PostgreSQL Docker Official Image](https://hub.docker.com/_/postgres)
-- [DigitalOcean Spaces docs](https://docs.digitalocean.com/products/spaces/)
-- [DigitalOcean Valkey docs](https://docs.digitalocean.com/products/databases/valkey/)
-- [Yandex Managed Service for Valkey docs](https://yandex.cloud/en/docs/managed-redis/)
+- [Caddy docs](https://caddyserver.com/docs/)
+- [AWS SDK for JavaScript S3 client](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/s3/)
 - [Zod docs](https://zod.dev/)
 - [jose documentation](https://github.com/panva/jose)
 - [TanStack Query React docs](https://tanstack.com/query/latest/docs/framework/react/overview)

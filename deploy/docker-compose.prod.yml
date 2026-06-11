@@ -1,0 +1,72 @@
+# Production stack for a single Linux VPS (e.g. sweb.ru VDS).
+# One box runs: PostgreSQL, the backend API, and Caddy (auto-HTTPS) which both
+# serves the static webapp/website builds and reverse-proxies the API.
+#
+# Run from the repository root with an explicit env file:
+#   docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build
+#
+# See docs/DEPLOYMENT.md for the full runbook.
+name: dune-site
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No host port is published: PostgreSQL is reachable only on the internal
+    # compose network. Open a port here only if you truly need external access.
+
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      # Backend listens on 8080 inside the network; Caddy proxies to it.
+      PORT: 8080
+      # Built from the POSTGRES_* values so credentials live in one place.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+    # Apply migrations, then start the API. migrate deploy is safe to re-run.
+    command: ["sh", "-c", "bun run prisma:deploy && bun run start"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8080"
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        # Baked into the static bundles at build time. Rebuild the caddy image
+        # (--build) after changing either of these.
+        VITE_API_URL: ${VITE_API_URL}
+        PUBLIC_WEBAPP_URL: ${PUBLIC_WEBAPP_URL}
+    restart: unless-stopped
+    # Domains are read from .env.prod by the Caddyfile to request TLS certs.
+    env_file: .env.prod
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
