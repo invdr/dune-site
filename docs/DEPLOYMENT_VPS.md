@@ -14,7 +14,7 @@ Three app processes + PostgreSQL behind nginx (TLS by Let's Encrypt):
 | Surface | What it is | Process | Port | Public domain (example) |
 | --- | --- | --- | --- | --- |
 | **backend** | Hono API (Bun) | systemd `dune-backend` | `127.0.0.1:3000` | `https://api.dunestate.ru` |
-| **website** | Astro SSR (standalone Node server) | systemd `dune-website` | `127.0.0.1:4321` | `https://dunestate.ru` |
+| **website** | Astro SSR (standalone server, run with Bun) | systemd `dune-website` | `127.0.0.1:4321` | `https://dunestate.ru` |
 | **webapp** | React admin SPA (static files) | served by nginx (no process) | — | `https://admin.dunestate.ru` |
 | **db** | PostgreSQL 16 | system service | `127.0.0.1:5432` | — (local only) |
 | **cron** | fx / quickdeal / leads jobs | systemd timers | — | — |
@@ -34,16 +34,14 @@ with cookies), so `COOKIE_SECURE=true`, all origins are HTTPS, and
 sudo apt update
 sudo apt install -y curl git nginx postgresql postgresql-contrib certbot python3-certbot-nginx unzip
 
-# Node 22 (runs the Astro standalone server)
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Bun (runs the backend + build tooling) — install for the deploy user
+# Bun — runs the backend, the build tooling, AND the Astro website server.
+# Node is NOT required: Bun runs the Astro standalone server (dist/server/entry.mjs).
 curl -fsSL https://bun.sh/install | bash
 # add to PATH (e.g. in ~/.bashrc):  export PATH="$HOME/.bun/bin:$PATH"
 ```
 
-Confirm: `bun --version` (≥ 1.3), `node --version` (≥ 22).
+Confirm: `bun --version` (≥ 1.3). (No Node install needed — Bun serves the
+website too.)
 
 ### Swap (required on ≤ 1 GB VPS)
 
@@ -196,7 +194,8 @@ User=deploy
 WorkingDirectory=/opt/dune/website
 Environment=HOST=127.0.0.1
 Environment=PORT=4321
-ExecStart=/usr/bin/node ./dist/server/entry.mjs
+Environment=PUBLIC_API_URL=https://api.dunestate.ru
+ExecStart=/home/deploy/.bun/bin/bun ./dist/server/entry.mjs
 Restart=always
 RestartSec=3
 

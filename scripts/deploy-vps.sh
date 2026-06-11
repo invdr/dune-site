@@ -38,7 +38,6 @@ log() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 die() { printf '\n\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
 
 command -v bun >/dev/null || die "bun not found on PATH ($HOME/.bun/bin). Install bun first."
-command -v node >/dev/null || die "node not found on PATH. Install Node 22 first."
 
 # --- 1. sync code ------------------------------------------------------------
 BRANCH="${DEPLOY_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
