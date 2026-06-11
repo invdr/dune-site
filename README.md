@@ -75,7 +75,7 @@ Install this repository into the project. Before cloning from a GitHub URL, ask 
 - `mobile/README.md` - pointer to the runnable Expo mobile template on the `mobile` branch.
 - `packages/contracts` - shared Zod schemas and TypeScript API types.
 - `.do` - committed DigitalOcean App Platform spec templates; generate concrete specs into `.scratch/deploy` with `bun run deploy:do:specs`.
-- `docker-compose.yml` - local PostgreSQL 18 through the official `postgres:18-alpine` image on port `54329`; test runners use a repository-derived port by default, or `POSTGRES_TEST_PORT` when set. PostgreSQL 18 is intentional because the backend schema uses strict database-generated UUIDv7 IDs.
+- `docker-compose.yml` - local PostgreSQL 18 through the official `postgres:18-alpine` image on port `54329`; test runners use a repository-derived port by default, or `POSTGRES_TEST_PORT` when set. PostgreSQL 18 is the local default for its native `uuidv7()`, but the schema is portable to PostgreSQL 13+ via the `uuidv7_compat` migration for managed/VPS Postgres.
 - `docs/TESTING.md` - the backend and Playwright testing contract. Mobile Maestro guidance lives on the `mobile` branch.
 - `docs/LOCAL_DATABASE.md` - cross-platform local PostgreSQL setup for Windows, macOS, and Linux.
 - `docs/STORAGE.md` - DigitalOcean Spaces, CDN, uploads, and image/media storage rules.

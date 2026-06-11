@@ -2,7 +2,7 @@
 
 Use Docker Compose for local PostgreSQL on Windows, macOS, and Linux. Do not ask users to install PostgreSQL natively during first-run setup unless they explicitly choose to manage their own database.
 
-This template currently uses the official `postgres:18-alpine` image. The major version is pinned to PostgreSQL 18 instead of `postgres:latest` so patch updates are easy while unexpected major upgrades do not break local volumes. PostgreSQL 18 is also a schema requirement for this template because Prisma models use database-generated UUIDv7 defaults through the native `uuidv7()` function.
+This template currently uses the official `postgres:18-alpine` image. The major version is pinned to PostgreSQL 18 instead of `postgres:latest` so patch updates are easy while unexpected major upgrades do not break local volumes. PostgreSQL 18 is convenient locally because it ships `uuidv7()` natively, but it is not a hard schema requirement: Prisma models use database-generated UUIDv7 defaults (`DEFAULT uuidv7()`), and the `uuidv7_compat` migration installs an RFC 9562 v7-compatible `uuidv7()` function on PostgreSQL 13–17 (Yandex Managed PostgreSQL, most VPS installs), so the schema works on PostgreSQL 13+ and skips the shim on PostgreSQL 18.
 
 Use explicit `postgresql://user:password@host:port/db?schema=public` URLs for Prisma commands, even on native local installs. Peer-auth style URLs without a user can make Prisma schema-engine commands fail with a generic error instead of a useful connection diagnostic.
 
