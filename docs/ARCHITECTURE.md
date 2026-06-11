@@ -83,7 +83,7 @@ Do not hand-write Prisma migration SQL. Change `backend/prisma/schema.prisma`, t
 ```bash
 bun run --cwd backend prisma:migrate
 
-The template uses database-generated UUIDv7 primary keys (`@default(dbgenerated("uuidv7()")) @db.Uuid`) instead of ORM-generated `cuid()`/`uuid()`. That keeps ID generation consistent for Prisma Client, direct SQL, imports, and any future background workers or non-Prisma writers. The schema relies on a `uuidv7()` database function: PostgreSQL 18 provides it natively, and the `uuidv7_compat` migration installs an RFC 9562 v7-compatible function on PostgreSQL 13–17, so the schema runs on PostgreSQL 13+.
+The template uses database-generated UUIDv7 primary keys (`@default(dbgenerated("uuidv7()")) @db.Uuid`) instead of ORM-generated `cuid()`/`uuid()`. That keeps ID generation consistent for Prisma Client, direct SQL, imports, and any future background workers or non-Prisma writers. The schema relies on a `uuidv7()` database function: PostgreSQL 18 provides it natively, and the `uuidv7_compat` migration installs an RFC 9562 v7-compatible function on PostgreSQL 13–17, so the schema runs on PostgreSQL 13+. The PG13–17 shim orders IDs at millisecond resolution and fills the sub-millisecond bits randomly, so ordering between IDs generated in the same millisecond is not guaranteed; this is fine for index locality and time-sortability but is not a strict per-insert monotonic counter.
 
 Treat UUIDv7 as a repository-level rule, not a one-off model detail. New primary keys should use database-generated UUIDv7, and foreign keys that reference those IDs should use `@db.Uuid` so the type stays native all the way through PostgreSQL and Prisma.
 ```
