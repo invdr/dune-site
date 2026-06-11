@@ -38,6 +38,7 @@ function SiteSettingsForm() {
   const [telegramChatId, setTelegramChatId] = useState('')
   const [bitrixWebhookUrl, setBitrixWebhookUrl] = useState('')
   const [bitrixEnabled, setBitrixEnabled] = useState(false)
+  const [yandexMapsApiKey, setYandexMapsApiKey] = useState('')
   const [usdRubSurcharge, setUsdRubSurcharge] = useState('2')
   const [companyName, setCompanyName] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
@@ -50,6 +51,7 @@ function SiteSettingsForm() {
     setTelegramChatId(settings.telegramChatId ?? '')
     setBitrixWebhookUrl(settings.bitrixWebhookUrl ?? '')
     setBitrixEnabled(settings.bitrixEnabled)
+    setYandexMapsApiKey(settings.yandexMapsApiKey ?? '')
     setUsdRubSurcharge(String(settings.usdRubSurcharge))
     setCompanyName(settings.companyName ?? '')
     setCompanyPhone(settings.companyPhone ?? '')
@@ -71,6 +73,7 @@ function SiteSettingsForm() {
         telegramChatId,
         bitrixWebhookUrl,
         bitrixEnabled,
+        yandexMapsApiKey,
         usdRubSurcharge: surcharge,
         companyName,
         companyPhone,
@@ -105,6 +108,18 @@ function SiteSettingsForm() {
           description="По умолчанию выключено — ждёт доступы заказчика."
           checked={bitrixEnabled}
           onChange={setBitrixEnabled}
+        />
+      </FormSection>
+
+      <FormSection
+        title="Яндекс.Карты"
+        description="JS API-ключ. С ним в карточке объекта работает интерактивный выбор точки на карте; без ключа остаётся обычное превью."
+      >
+        <TextField
+          label="API-ключ"
+          value={yandexMapsApiKey}
+          onChange={setYandexMapsApiKey}
+          description="Ключ JavaScript API из кабинета Яндекс.Карт (developer.tech.yandex.ru)."
         />
       </FormSection>
 

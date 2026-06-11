@@ -2,8 +2,8 @@ import type { CreateLeadPayload, LeadListQuery, UpdateLeadPayload } from '@dune/
 
 import type { DbClient } from '../db'
 import { AppError } from '../http/errors'
-import { Prisma } from '../generated/prisma/client'
-import { BitrixAdapter, type BitrixSender } from './bitrix'
+import { Prisma, type $Enums } from '../generated/prisma/client'
+import { BitrixAdapter, type BitrixSender, type ResponsibleManager } from './bitrix'
 import { toLeadDto } from './serializer'
 import { TelegramNotifier, type TelegramSender } from './telegram'
 
@@ -70,6 +70,7 @@ export class LeadService {
 
     const settings = await this.db.siteSettings.findUnique({ where: { id: 'singleton' } })
     const objectLine = await this.objectLine(lead.propertyId)
+    const manager = await this.responsibleManager(lead.propertyId, lead.direction)
 
     const notifier = new TelegramNotifier(
       { botToken: settings?.telegramBotToken ?? null, chatId: settings?.telegramChatId ?? null },
@@ -86,7 +87,7 @@ export class LeadService {
       this.deps.bitrixSender,
     )
     if (bitrix.enabled && !lead.bitrixSentAt) {
-      if (await bitrix.deliver(lead, objectLine)) {
+      if (await bitrix.deliver(lead, objectLine, manager)) {
         await this.db.lead.update({ where: { id: lead.id }, data: { bitrixSentAt: new Date() } })
       }
     }
@@ -119,6 +120,37 @@ export class LeadService {
       select: { title: true, slug: true },
     })
     return property ? `${property.title} (/${property.slug})` : null
+  }
+
+  // Routes a lead to the right person: the object's personal manager mirrored
+  // from QuickDeal (`assigned`), falling back to the active direction manager.
+  // Used to stamp the responsible manager onto the Bitrix lead (§7, §10).
+  private async responsibleManager(
+    propertyId: string | null,
+    direction: $Enums.PropertyDirection | null,
+  ): Promise<ResponsibleManager | null> {
+    let resolvedDirection = direction
+
+    if (propertyId) {
+      const property = await this.db.property.findUnique({
+        where: { id: propertyId },
+        select: { managerName: true, managerPhone: true, direction: true },
+      })
+      if (property?.managerName) {
+        return { name: property.managerName, phone: property.managerPhone }
+      }
+      resolvedDirection = property?.direction ?? resolvedDirection
+    }
+
+    if (resolvedDirection) {
+      const manager = await this.db.manager.findFirst({
+        where: { direction: resolvedDirection, active: true },
+        select: { name: true, phone: true },
+      })
+      if (manager) return { name: manager.name, phone: manager.phone }
+    }
+
+    return null
   }
 
   async list(query: LeadListQuery) {

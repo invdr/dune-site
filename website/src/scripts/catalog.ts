@@ -3,6 +3,7 @@ import { cardHtml } from '../lib/card'
 import type { DirectionKey } from '../lib/directions'
 import {
   activePills,
+  DEFAULT_DIR,
   headFor,
   parseState,
   priceCurrency,
@@ -23,7 +24,7 @@ let pageCount = 1
 
 function emptyState(): CatalogState {
   return {
-    dir: null,
+    dir: DEFAULT_DIR,
     type: null,
     rooms: null,
     minPrice: null,
@@ -151,11 +152,13 @@ function bind(): void {
     const c = (e.target as HTMLElement).closest<HTMLElement>('.chip')
     if (!c) return
     const dir = c.getAttribute('data-dir') as DirectionKey
-    state.dir = state.dir === dir ? null : dir
-    if (!priceEnabled(state)) {
-      state.minPrice = null
-      state.maxPrice = null
-    }
+    // Mandatory single direction: switch to the clicked one, never clear it.
+    if (state.dir === dir) return
+    state.dir = dir
+    // Price bounds were entered in the previous direction's currency — reset
+    // them so the slider stays consistent with the new currency.
+    state.minPrice = null
+    state.maxPrice = null
     syncControls()
     void load()
   })
@@ -249,11 +252,7 @@ function bindToggle(sel: string, key: 'installment' | 'premium' | 'isNewBuilding
 
 function removePill(key: string): void {
   switch (key) {
-    case 'dir':
-      state.dir = null
-      state.minPrice = null
-      state.maxPrice = null
-      break
+    // 'dir' is intentionally absent: direction is mandatory and has no pill.
     case 'type':
       state.type = null
       break

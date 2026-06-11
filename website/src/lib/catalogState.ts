@@ -5,9 +5,13 @@ import type { PropertyQuery } from './api'
 
 // Single source of truth for catalog filters, shared by the SSR page and the
 // client island. Direction and rooms are single-select to match the Этап 2 API
-// contract (one direction, one rooms value per query).
+// contract (one direction, one rooms value per query). Direction is mandatory —
+// the catalog always shows exactly one direction (default `new`); it cannot be
+// cleared, only switched. This keeps the price filter always in one currency.
+export const DEFAULT_DIR: DirectionKey = 'new'
+
 export interface CatalogState {
-  dir: DirectionKey | null
+  dir: DirectionKey
   type: PropertyType | null
   rooms: number | null
   minPrice: number | null
@@ -37,7 +41,7 @@ export function parseState(params: URLSearchParams): CatalogState {
   const sort = params.get('sort') ?? 'newest'
   const rawMax = num(params.get('maxPrice'))
   return {
-    dir: dir && DIR_KEYS.includes(dir as DirectionKey) ? (dir as DirectionKey) : null,
+    dir: dir && DIR_KEYS.includes(dir as DirectionKey) ? (dir as DirectionKey) : DEFAULT_DIR,
     type: type && TYPE_VALUES.includes(type as PropertyType) ? (type as PropertyType) : null,
     rooms: num(params.get('rooms')),
     minPrice: num(params.get('minPrice')),
@@ -130,8 +134,9 @@ export function headFor(state: CatalogState): CatalogHead {
 
 // Active filter chips (for the pills row). `key` is used to remove the filter.
 export function activePills(state: CatalogState): { key: string; label: string }[] {
+  // Direction is mandatory and shown as the active chip + page head, so it is
+  // not a removable pill here.
   const pills: { key: string; label: string }[] = []
-  if (state.dir) pills.push({ key: 'dir', label: metaByKey(state.dir)?.label ?? state.dir })
   if (state.type) {
     const t = PROPERTY_TYPES.find((x) => x.value === state.type)
     pills.push({ key: 'type', label: t?.label ?? state.type })

@@ -18,6 +18,7 @@ function toSiteSettingsDto(row: SiteSettings): SiteSettingsDto {
     telegramChatId: row.telegramChatId,
     bitrixWebhookUrl: row.bitrixWebhookUrl,
     bitrixEnabled: row.bitrixEnabled,
+    yandexMapsApiKey: row.yandexMapsApiKey,
     usdRubSurcharge: row.usdRubSurcharge,
     companyName: row.companyName,
     companyPhone: row.companyPhone,

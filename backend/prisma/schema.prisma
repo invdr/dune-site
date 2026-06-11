@@ -237,6 +237,10 @@ model SiteSettings {
   telegramChatId   String?  @map("telegram_chat_id")
   bitrixWebhookUrl String?  @map("bitrix_webhook_url")
   bitrixEnabled    Boolean  @default(false) @map("bitrix_enabled")
+  // Yandex Maps JS API key, managed from the admin settings screen. Used by the
+  // admin coordinate picker (and any keyed map surface). Domain-restricted
+  // client key — not a server secret like the integration tokens above.
+  yandexMapsApiKey String?  @map("yandex_maps_api_key")
   // Added to the CBR USD→RUB rate, in whole roubles (default +2 ₽).
   usdRubSurcharge  Int      @default(2) @map("usd_rub_surcharge")
   // Company-wide fallback contact, shown when neither the object's personal

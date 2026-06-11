@@ -10,6 +10,17 @@ export type BitrixConfig = {
 
 export type BitrixSender = (url: string, body: unknown) => Promise<boolean>
 
+// Responsible manager for the object behind a lead, resolved from QuickDeal
+// (`assigned` → personal manager) with a direction-manager fallback. Carried
+// onto the Bitrix lead so the CRM-side routing knows whose object it is.
+// Hard auto-assignment (`ASSIGNED_BY_ID`) additionally needs a QuickDeal→Bitrix
+// user-id mapping, which the customer supplies later; until then the manager
+// travels as structured text the receiving side can route on.
+export type ResponsibleManager = {
+  name: string | null
+  phone: string | null
+}
+
 const defaultSender: BitrixSender = async (url, body) => {
   try {
     const response = await fetch(url, {
@@ -26,13 +37,21 @@ const defaultSender: BitrixSender = async (url, body) => {
 // Maps a lead onto Bitrix `crm.lead.add` fields. Comment carries the context
 // (direction/object/source) the structured fields cannot hold. `objectLine` is
 // the human-readable title/slug resolved by the caller (falls back to the id).
-export function toBitrixLeadFields(lead: Lead, objectLine: string | null): Record<string, unknown> {
+export function toBitrixLeadFields(
+  lead: Lead,
+  objectLine: string | null,
+  manager: ResponsibleManager | null = null,
+): Record<string, unknown> {
   const objectText = objectLine ?? (lead.propertyId ? lead.propertyId : null)
+  const managerLine = manager?.name
+    ? `Менеджер объекта: ${manager.name}${manager.phone ? ` (${manager.phone})` : ''}`
+    : null
   const comment = [
     lead.message ? `Комментарий: ${lead.message}` : null,
     lead.direction ? `Направление: ${lead.direction}` : null,
     lead.source ? `Источник: ${lead.source}` : null,
     objectText ? `Объект: ${objectText}` : null,
+    managerLine,
   ]
     .filter(Boolean)
     .join('\n')
@@ -57,10 +76,14 @@ export class BitrixAdapter {
     return this.config.enabled && Boolean(this.config.webhookUrl)
   }
 
-  async deliver(lead: Lead, objectLine: string | null): Promise<boolean> {
+  async deliver(
+    lead: Lead,
+    objectLine: string | null,
+    manager: ResponsibleManager | null = null,
+  ): Promise<boolean> {
     if (!this.config.enabled || !this.config.webhookUrl) return false
 
     const url = `${this.config.webhookUrl.replace(/\/$/, '')}/crm.lead.add.json`
-    return this.send(url, { fields: toBitrixLeadFields(lead, objectLine) })
+    return this.send(url, { fields: toBitrixLeadFields(lead, objectLine, manager) })
   }
 }

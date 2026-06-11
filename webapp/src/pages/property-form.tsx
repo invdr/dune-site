@@ -44,6 +44,7 @@ import {
   utilities as utilityValues,
   utilityLabels,
 } from '@/lib/labels'
+import { useSettings } from '@/lib/admin-queries'
 import { uploadFile } from '@/lib/upload'
 import { useAuth } from '@/lib/use-auth'
 
@@ -270,6 +271,7 @@ export function PropertyForm({
   onSubmit: (payload: CreatePropertyRequest | UpdatePropertyRequest) => Promise<void>
 }) {
   const { api } = useAuth()
+  const settingsQuery = useSettings()
   const [draft, setDraft] = useState<Draft>(() => toDraft(property))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
@@ -628,6 +630,7 @@ export function PropertyForm({
         <CoordinatePicker
           lat={draft.lat}
           lng={draft.lng}
+          apiKey={settingsQuery.data?.settings.yandexMapsApiKey ?? null}
           onChange={(next) => update(next)}
         />
       </FormSection>

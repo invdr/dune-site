@@ -1,6 +1,6 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon, ArrowRight01Icon, Cancel01Icon, Image02Icon } from '@hugeicons/core-free-icons'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -239,21 +239,187 @@ export function PhotoEditor({
   )
 }
 
-// Coordinate picker. The interactive click-to-place map needs a Yandex JS API key
-// (blocked on the client per §4.2), so v1 takes numeric lat/lng and shows a
-// keyless map-widget preview — the same widget the public card uses.
+// --- Yandex Maps JS API loader (single shared script) ---------------------
+// Minimal surface of the ymaps 2.1 API we use for the coordinate picker.
+type YmapsEvent = { get(name: string): unknown }
+type YmapsGeometry = {
+  getCoordinates(): [number, number]
+  setCoordinates(coords: [number, number]): void
+}
+type YmapsPlacemark = {
+  geometry: YmapsGeometry
+  events: { add(event: string, handler: () => void): void }
+}
+type YmapsMap = {
+  geoObjects: { add(object: unknown): void }
+  events: { add(event: string, handler: (e: YmapsEvent) => void): void }
+  setCenter(coords: [number, number], zoom?: number): void
+  destroy(): void
+}
+type YmapsApi = {
+  ready(callback: () => void): void
+  Map: new (
+    element: HTMLElement,
+    options: { center: [number, number]; zoom: number; controls?: string[] },
+  ) => YmapsMap
+  Placemark: new (
+    coords: [number, number],
+    properties?: Record<string, unknown>,
+    options?: Record<string, unknown>,
+  ) => YmapsPlacemark
+}
+
+declare global {
+  interface Window {
+    ymaps?: YmapsApi
+  }
+}
+
+// Grozny — sensible default centre when the object has no point yet.
+const DEFAULT_CENTER: [number, number] = [43.3169, 45.6981]
+const round6 = (n: number) => Math.round(n * 1e6) / 1e6
+
+let ymapsPromise: Promise<YmapsApi> | null = null
+function loadYmaps(apiKey: string): Promise<YmapsApi> {
+  if (typeof window === 'undefined') return Promise.reject(new Error('no window'))
+  if (window.ymaps) return Promise.resolve(window.ymaps)
+  if (ymapsPromise) return ymapsPromise
+  ymapsPromise = new Promise<YmapsApi>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`
+    script.async = true
+    script.onload = () => {
+      const api = window.ymaps
+      if (api) api.ready(() => resolve(api))
+      else reject(new Error('ymaps unavailable after load'))
+    }
+    script.onerror = () => {
+      ymapsPromise = null
+      reject(new Error('failed to load ymaps'))
+    }
+    document.head.appendChild(script)
+  })
+  return ymapsPromise
+}
+
+// Interactive click-to-place map, shown when a Yandex JS API key is configured.
+// Clicking the map (or dragging the marker) writes lat/lng back to the form.
+// Falls back to a notice if the API key is rejected or the script fails.
+function InteractiveMap({
+  apiKey,
+  lat,
+  lng,
+  onPick,
+}: {
+  apiKey: string
+  lat: number | null
+  lng: number | null
+  onPick: (lat: number, lng: number) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<YmapsMap | null>(null)
+  const placemarkRef = useRef<YmapsPlacemark | null>(null)
+  const placedRef = useRef(false)
+  const onPickRef = useRef(onPick)
+  const [failed, setFailed] = useState(false)
+
+  // Keep the latest onPick without re-running the map-build effect.
+  useEffect(() => {
+    onPickRef.current = onPick
+  }, [onPick])
+
+  // Build the map once per key. Reading lat/lng here only seeds the initial
+  // centre/marker; external edits are synced by the effect below.
+  useEffect(() => {
+    let cancelled = false
+    const seedLat = lat
+    const seedLng = lng
+    loadYmaps(apiKey)
+      .then((ymaps) => {
+        if (cancelled || !containerRef.current) return
+        const hasSeed = seedLat != null && seedLng != null
+        const center: [number, number] = hasSeed ? [seedLat, seedLng] : DEFAULT_CENTER
+        const map = new ymaps.Map(containerRef.current, { center, zoom: 15, controls: ['zoomControl'] })
+        const placemark = new ymaps.Placemark(center, {}, { draggable: true })
+        if (hasSeed) {
+          map.geoObjects.add(placemark)
+          placedRef.current = true
+        }
+        const commit = (coords: [number, number]) => onPickRef.current(round6(coords[0]), round6(coords[1]))
+        map.events.add('click', (event) => {
+          const coords = event.get('coords') as [number, number] | undefined
+          if (!coords) return
+          placemark.geometry.setCoordinates(coords)
+          if (!placedRef.current) {
+            map.geoObjects.add(placemark)
+            placedRef.current = true
+          }
+          commit(coords)
+        })
+        placemark.events.add('dragend', () => commit(placemark.geometry.getCoordinates()))
+        mapRef.current = map
+        placemarkRef.current = placemark
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true)
+      })
+    return () => {
+      cancelled = true
+      mapRef.current?.destroy()
+      mapRef.current = null
+      placemarkRef.current = null
+      placedRef.current = false
+    }
+    // Re-init only when the key changes; coord sync is handled separately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey])
+
+  // Reflect numeric-input edits onto the marker without rebuilding the map.
+  useEffect(() => {
+    const map = mapRef.current
+    const placemark = placemarkRef.current
+    if (!map || !placemark || lat == null || lng == null) return
+    placemark.geometry.setCoordinates([lat, lng])
+    if (!placedRef.current) {
+      map.geoObjects.add(placemark)
+      placedRef.current = true
+    }
+    map.setCenter([lat, lng])
+  }, [lat, lng])
+
+  if (failed) {
+    return (
+      <Typography
+        variant="bodySm"
+        tone="muted"
+        className="rounded-2xl border border-dashed border-border bg-input/20 px-4 py-6 text-center"
+      >
+        Не удалось загрузить карту — проверьте API-ключ Яндекс.Карт в настройках. Координаты можно ввести вручную выше.
+      </Typography>
+    )
+  }
+
+  return <div ref={containerRef} className="h-64 w-full overflow-hidden rounded-2xl border border-border" />
+}
+
+// Coordinate picker. With a Yandex JS API key (configured in site settings) it
+// shows an interactive click-to-place map; without a key it falls back to a
+// keyless map-widget preview. Numeric lat/lng inputs stay available either way.
 export function CoordinatePicker({
   lat,
   lng,
+  apiKey,
   onChange,
 }: {
   lat: string
   lng: string
+  apiKey?: string | null
   onChange: (next: { lat?: string; lng?: string }) => void
 }) {
   const latNum = Number.parseFloat(lat)
   const lngNum = Number.parseFloat(lng)
   const hasPoint = Number.isFinite(latNum) && Number.isFinite(lngNum)
+  const hasKey = Boolean(apiKey && apiKey.trim().length > 0)
 
   return (
     <div className="grid gap-3">
@@ -279,7 +445,14 @@ export function CoordinatePicker({
           />
         </div>
       </div>
-      {hasPoint ? (
+      {hasKey ? (
+        <InteractiveMap
+          apiKey={(apiKey as string).trim()}
+          lat={hasPoint ? latNum : null}
+          lng={hasPoint ? lngNum : null}
+          onPick={(nextLat, nextLng) => onChange({ lat: String(nextLat), lng: String(nextLng) })}
+        />
+      ) : hasPoint ? (
         <iframe
           title="Карта объекта"
           className="h-64 w-full rounded-2xl border border-border"
