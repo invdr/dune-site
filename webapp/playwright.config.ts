@@ -6,6 +6,7 @@ import { applyE2ePortEnv, resolveE2ePorts } from './e2e/ports'
 const frontendRoot = fileURLToPath(new URL('.', import.meta.url))
 const repositoryRoot = resolve(frontendRoot, '..')
 const backendRoot = resolve(repositoryRoot, 'backend')
+const websiteRoot = resolve(repositoryRoot, 'website')
 
 const portPlan = await resolveE2ePorts()
 applyE2ePortEnv(portPlan)
@@ -14,6 +15,8 @@ const backendPort = portPlan.backendPort
 const frontendPort = portPlan.webPort
 const backendUrl = portPlan.backendUrl
 const frontendUrl = portPlan.webUrl
+const websitePort = portPlan.websitePort
+const websiteUrl = portPlan.websiteUrl
 const databaseUrl = portPlan.databaseUrl
 
 function normalizeEnv(env: NodeJS.ProcessEnv): Record<string, string> {
@@ -78,6 +81,20 @@ export default defineConfig({
         VITE_API_URL: backendUrl,
       }),
       url: frontendUrl,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      // Public Astro storefront — storefront specs (lead form, catalog) hit this
+      // app; it shares the same backend via PUBLIC_API_URL.
+      name: 'website',
+      command: `bun run dev --host 127.0.0.1 --port ${websitePort}`,
+      cwd: websiteRoot,
+      env: normalizeEnv({
+        ...process.env,
+        PUBLIC_API_URL: backendUrl,
+      }),
+      url: websiteUrl,
       reuseExistingServer: false,
       timeout: 120_000,
     },
