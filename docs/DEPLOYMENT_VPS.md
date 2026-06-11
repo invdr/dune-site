@@ -45,6 +45,25 @@ curl -fsSL https://bun.sh/install | bash
 
 Confirm: `bun --version` (≥ 1.3), `node --version` (≥ 22).
 
+### Swap (required on ≤ 1 GB VPS)
+
+The front-end builds (Vite + Astro) briefly peak around 0.4–0.6 GB **each**. On a
+1 GB server that build can run out of memory and get killed. Add 2 GB of swap so
+the build completes (it just spills to disk while building):
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # persist across reboots
+free -h                                                       # verify Swap row
+```
+
+The backend itself (Bun runs TypeScript directly, no build) and the running
+services are light — only the build step is memory-hungry. On ≤ 1 GB always
+deploy with `LOW_MEM=1` (see §12).
+
 ## 3. PostgreSQL
 
 ```bash
@@ -346,10 +365,25 @@ restart `dune-backend` to start mirroring objects.
 
 ## 12. Updating (redeploy)
 
+Use the helper script — it runs the whole sequence and refuses to act on a dirty
+server tree:
+
+```bash
+cd /opt/dune
+# Small VPS (≤ 1 GB RAM) — caps Node heap and frees the website server's RAM
+# during the build (short public-site outage while building):
+DEPLOY_BRANCH=claude/focused-fermat-2t05rc LOW_MEM=1 ./scripts/deploy-vps.sh
+
+# Larger VPS (≥ 2 GB) — no special memory handling needed:
+DEPLOY_BRANCH=claude/focused-fermat-2t05rc ./scripts/deploy-vps.sh
+```
+
+The equivalent manual steps:
+
 ```bash
 cd /opt/dune
 git pull
-bun install
+bun install --frozen-lockfile
 bun run --cwd backend prisma:generate
 bun run --cwd backend prisma:deploy        # apply any new migrations
 bun run --cwd webapp build
@@ -357,9 +391,10 @@ bun run --cwd website build
 sudo systemctl restart dune-backend dune-website
 ```
 
-A blip of downtime during restart is expected on a single VPS. For zero-downtime
-you would run two backend instances behind nginx and restart them one at a time
-— not needed for v1.
+Useful overrides: `SKIP_BUILD=1` (backend-only change, no front-end rebuild),
+`NO_RESTART=1` (build but don't restart). A blip of downtime during restart is
+expected on a single VPS; zero-downtime would need two backend instances behind
+nginx — not needed for v1.
 
 ## 13. Security checklist
 
