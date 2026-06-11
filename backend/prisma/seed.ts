@@ -135,6 +135,28 @@ const properties: SeedProperty[] = [
     badges: ['Новостройка', 'Рассрочка'],
     features: ['Кладовая', 'Кухня-гостиная', 'Закрытый двор'],
   },
+  {
+    slug: 'gz-05',
+    direction: 'NEW',
+    type: 'TOWNHOUSE',
+    title: 'Таунхаус, 140 м², 2 уровня',
+    rooms: 4,
+    area: 140,
+    floor: null,
+    totalFloors: 2,
+    complex: 'КП «Сити-Хаус»',
+    city: 'Грозный',
+    district: 'Грозненский р-н',
+    price: 12_900_000,
+    currency: 'RUB',
+    premium: true,
+    installment: true,
+    isNewBuilding: true,
+    delivery: 'I кв. 2027',
+    placeholderTone: '',
+    badges: ['Таунхаус', 'Рассрочка 0%'],
+    features: ['Свой вход и двор', 'Терраса на крыше', 'Паркинг на 2 авто', 'Газ и центральные сети'],
+  },
   // ---------- Вторичка ----------
   {
     slug: 'rs-01',
@@ -364,6 +386,28 @@ const properties: SeedProperty[] = [
     badges: ['Вилла', 'Премиум'],
     features: ['Собственный пляж', 'Бассейн infinity', 'Лифт', 'Гараж на 3 авто'],
   },
+  {
+    slug: 'db-05',
+    direction: 'DUBAI',
+    type: 'TOWNHOUSE',
+    title: 'Townhouse 3BR, 210 м²',
+    rooms: 3,
+    area: 210,
+    floor: null,
+    totalFloors: 2,
+    complex: 'DAMAC Hills 2',
+    city: 'Дубай',
+    district: 'DAMAC Hills 2',
+    price: 540_000,
+    currency: 'USD',
+    premium: false,
+    installment: true,
+    isNewBuilding: true,
+    delivery: 'III кв. 2027',
+    placeholderTone: '',
+    badges: ['Таунхаус', 'Рассрочка'],
+    features: ['План оплаты 50/50', 'Свой сад', 'Клубный дом и лагуны', 'Сдача под ключ'],
+  },
   // ---------- Саудовская Аравия ----------
   {
     slug: 'sa-01',
@@ -455,6 +499,32 @@ const properties: SeedProperty[] = [
   },
 ]
 
+// Map point per listing so the card map (§4.16, §8) has a real location across
+// every direction. Explicit `lat`/`lng` on a listing win over this fallback.
+const coords: Record<string, { lat: number; lng: number }> = {
+  // Грозный
+  'gz-01': { lat: 43.3178, lng: 45.6949 },
+  'gz-02': { lat: 43.305, lng: 45.71 },
+  'gz-03': { lat: 43.3209, lng: 45.689 },
+  'gz-04': { lat: 43.33, lng: 45.66 },
+  'gz-05': { lat: 43.29, lng: 45.72 },
+  'rs-01': { lat: 43.312, lng: 45.698 },
+  'rs-02': { lat: 43.24, lng: 45.66 },
+  'rs-03': { lat: 43.3185, lng: 45.692 },
+  'rs-04': { lat: 43.3, lng: 45.705 },
+  // Дубай
+  'db-01': { lat: 25.188, lng: 55.279 },
+  'db-02': { lat: 25.059, lng: 55.208 },
+  'db-03': { lat: 25.08, lng: 55.14 },
+  'db-04': { lat: 25.112, lng: 55.139 },
+  'db-05': { lat: 25.03, lng: 55.27 },
+  // Эр-Рияд / Джидда
+  'sa-01': { lat: 24.85, lng: 46.63 },
+  'sa-02': { lat: 21.58, lng: 39.14 },
+  'sa-03': { lat: 24.737, lng: 46.575 },
+  'sa-04': { lat: 24.66, lng: 46.71 },
+}
+
 async function main() {
   const databaseUrl = process.env.DATABASE_URL
   if (!databaseUrl) {
@@ -466,6 +536,7 @@ async function main() {
 
   try {
     for (const property of properties) {
+      const fallback = coords[property.slug]
       const data = {
         source: 'SITE' as const,
         lat: null,
@@ -474,6 +545,8 @@ async function main() {
         commercialKind: null,
         utilities: [] as string[],
         ...property,
+        lat: property.lat ?? fallback?.lat ?? null,
+        lng: property.lng ?? fallback?.lng ?? null,
         status: 'PUBLISHED' as const,
         photos: [],
         publishedAt,
@@ -522,7 +595,7 @@ async function main() {
         id: 'singleton',
         heroTitle: 'Недвижимость в России и за рубежом',
         heroSubtitle: 'Новостройки и вторичка в России, инвестиции в Дубае и Саудовской Аравии',
-        chosenSlugs: ['gz-01', 'gz-03', 'db-03', 'sa-04'],
+        chosenSlugs: ['gz-01', 'gz-03', 'gz-05', 'db-03', 'db-05', 'sa-04'],
       },
     })
 
