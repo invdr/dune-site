@@ -7,42 +7,7 @@ import type {
   Utility,
 } from '@dune/contracts'
 
-// Shape of one object in the QuickDeal native feed (`format=quickDeal`). The
-// live schema is not yet available (§14 — feed secret/samples pending), so this
-// is a tolerant, best-effort view of the documented fields. Everything is
-// optional; the mapper degrades gracefully and the importer publishes what it
-// can (per the product decision). Adjust this type against real samples when
-// they arrive — it is the single point of coupling to the feed.
-export type QuickDealFeedObject = {
-  feedId?: string
-  isSendToCompanySite?: boolean
-  export?: string
-  countryIsoCode?: string
-  // Object kind/view as named in QuickDeal (e.g. "Квартира в новостройке").
-  objectType?: string
-  objectView?: string
-  status?: string
-  rooms?: number | string
-  area?: number | string
-  floor?: number | string
-  totalFloors?: number | string
-  title?: string
-  complex?: string
-  city?: string
-  district?: string
-  // Foreign listings carry a USD `standardizedPrice`; RU listings a ₽ `price`.
-  standardizedPrice?: number | string
-  price?: number | string
-  lat?: number | string
-  lng?: number | string
-  photos?: string[]
-  installment?: boolean
-  delivery?: string
-  landUse?: string
-  utilities?: string[]
-  commercialKind?: string
-  assigned?: { name?: string; phone?: string; photo?: string } | null
-}
+import { child, children, textAt, type XmlNode } from './xml'
 
 // Feed-owned fields written on every sync. The site layer (slug, badges,
 // premium, placeholderTone, curated selections) is never part of this.
@@ -77,47 +42,9 @@ export type MappedListing = {
   managerPhotoUrl: string | null
 }
 
-const NEW_BUILDING_HINT = /новостро|new build/i
-const TOWNHOUSE_HINT = /таунхаус|townhouse/i
-const HOUSE_HINT = /дом|коттедж|house|cottage|villa/i
-const LAND_HINT = /участок|земл|land|plot/i
-const COMMERCIAL_HINT = /коммерц|commercial|офис|office|магазин|retail|склад|warehouse/i
-
-const LAND_USE_MAP: Record<string, LandUse> = {
-  ижс: 'IZHS',
-  izhs: 'IZHS',
-  снт: 'SNT',
-  snt: 'SNT',
-  лпх: 'LPH',
-  lph: 'LPH',
-  коммерческая: 'COMMERCIAL',
-  commercial: 'COMMERCIAL',
-}
-
-const COMMERCIAL_KIND_MAP: Record<string, CommercialKind> = {
-  офис: 'OFFICE',
-  office: 'OFFICE',
-  магазин: 'RETAIL',
-  ритейл: 'RETAIL',
-  retail: 'RETAIL',
-  склад: 'WAREHOUSE',
-  warehouse: 'WAREHOUSE',
-  общепит: 'FOOD_SERVICE',
-  food: 'FOOD_SERVICE',
-  свободного: 'FREE_PURPOSE',
-  free: 'FREE_PURPOSE',
-}
-
-const UTILITY_MAP: Record<string, Utility> = {
-  электр: 'ELECTRICITY',
-  electric: 'ELECTRICITY',
-  газ: 'GAS',
-  gas: 'GAS',
-  вода: 'WATER',
-  water: 'WATER',
-  канализ: 'SEWERAGE',
-  sewer: 'SEWERAGE',
-}
+// QuickDeal `building/projectStatus` values that mark a primary/under-construction
+// project. "readySecondary" (the common resale value) intentionally matches none.
+const NEW_PROJECT_STATUS = /new|building|primary|unfinished|construction/i
 
 const TRANSLIT: Record<string, string> = {
   а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i',
@@ -158,6 +85,86 @@ function toInt(value: unknown): number | null {
   return parsed == null ? null : Math.round(parsed)
 }
 
+// Land/garden areas come in sotka or hectare; the catalog stores and renders
+// area in m² (the feed's own pricePerSquareMeter is computed against m²).
+function areaToSquareMeters(value: number, unit: string | undefined): number {
+  switch ((unit ?? '').toLowerCase()) {
+    case 'sotka':
+    case 'are':
+      return value * 100
+    case 'hectare':
+      return value * 10_000
+    default:
+      return value
+  }
+}
+
+// Maps the QuickDeal lifecycle status to the catalog status, or null for states
+// that should not appear at all (draft/deferred/archived in the CRM). Objects
+// that drop out of the feed are archived separately by the importer.
+function mapStatus(status: string | undefined): 'PUBLISHED' | 'SOLD' | null {
+  switch ((status ?? '').toLowerCase()) {
+    case 'active':
+      return 'PUBLISHED'
+    case 'sold':
+    case 'completed':
+      return 'SOLD'
+    default:
+      return null
+  }
+}
+
+export function mapDirection(
+  countryIso: string | undefined,
+  realtyType: string,
+  projectStatus: string | undefined,
+): PropertyDirection | null {
+  const iso = (countryIso ?? '').toUpperCase()
+  if (iso === 'AE') return 'DUBAI'
+  if (iso === 'SA') return 'SAUDI'
+  if (iso === 'RU' || iso === '') {
+    const isNew = /new/i.test(realtyType) || NEW_PROJECT_STATUS.test(projectStatus ?? '')
+    return isNew ? 'NEW' : 'RESALE'
+  }
+  // Other foreign listings have no direction bucket on this site yet.
+  return null
+}
+
+const COMMERCIAL_REALTY = /office|retail|warehouse|commerc|business|production|garage|freeappointment|building/i
+
+export function mapType(realtyType: string): PropertyType {
+  const rt = realtyType.toLowerCase()
+  if (rt.includes('land')) return COMMERCIAL_REALTY.test(rt) ? 'COMMERCIAL' : 'LAND'
+  if (rt.includes('townhouse')) return 'TOWNHOUSE'
+  if (rt.includes('house') || rt.includes('cottage')) return 'HOUSE'
+  if (COMMERCIAL_REALTY.test(rt)) return 'COMMERCIAL'
+  // Default residential bucket (flat, room, apartments, studio).
+  return 'APARTMENT'
+}
+
+const LAND_USE_MAP: Record<string, LandUse> = {
+  individualhousingconstruction: 'IZHS',
+  izhs: 'IZHS',
+  gardening: 'SNT',
+  snt: 'SNT',
+  personalsubsidiary: 'LPH',
+  privatefarm: 'LPH',
+  lph: 'LPH',
+  commercial: 'COMMERCIAL',
+  industrial: 'COMMERCIAL',
+}
+
+const COMMERCIAL_KIND_MAP: Record<string, CommercialKind> = {
+  office: 'OFFICE',
+  retail: 'RETAIL',
+  shopping: 'RETAIL',
+  warehouse: 'WAREHOUSE',
+  production: 'WAREHOUSE',
+  food: 'FOOD_SERVICE',
+  freeappointment: 'FREE_PURPOSE',
+  freepurpose: 'FREE_PURPOSE',
+}
+
 function matchFrom<T>(text: string | undefined, map: Record<string, T>): T | null {
   if (!text) return null
   const lower = text.toLowerCase()
@@ -167,52 +174,93 @@ function matchFrom<T>(text: string | undefined, map: Record<string, T>): T | nul
   return null
 }
 
-export function mapDirection(country: string | undefined, kindText: string): PropertyDirection | null {
-  const iso = (country ?? '').toUpperCase()
-  if (iso === 'AE') return 'DUBAI'
-  if (iso === 'SA') return 'SAUDI'
-  if (iso === 'RU' || iso === '') {
-    return NEW_BUILDING_HINT.test(kindText) ? 'NEW' : 'RESALE'
+// Only objects flagged for the company site and not hidden are importable.
+export function isImportable(object: XmlNode): boolean {
+  const sendToSite = textAt(object, 'feedSettings', 'isSendToCompanySite') === 'true'
+  const hidden = textAt(object, 'isHidden') === 'true'
+  return sendToSite && !hidden
+}
+
+function collectPhotos(object: XmlNode): string[] {
+  const sources = children(child(object, 'images'), 'src')
+  const urls = sources
+    .map((src) => ({ url: textAt(src, 'name'), isDefault: textAt(src, 'default') === 'true' }))
+    .filter((item): item is { url: string; isDefault: boolean } => Boolean(item.url))
+  // Lead photo (default) first; keep feed order otherwise.
+  urls.sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
+  return [...new Set(urls.map((item) => item.url))]
+}
+
+function managerName(assigned: XmlNode | undefined): string | null {
+  const name = [textAt(assigned, 'firstName'), textAt(assigned, 'lastName')].filter(Boolean).join(' ').trim()
+  return name || null
+}
+
+function fallbackTitle(type: PropertyType, rooms: number, area: number): string {
+  const size = area > 0 ? `, ${area} м²` : ''
+  switch (type) {
+    case 'LAND':
+      return `Земельный участок${size}`
+    case 'HOUSE':
+      return `Дом${size}`
+    case 'TOWNHOUSE':
+      return `Таунхаус${size}`
+    case 'COMMERCIAL':
+      return `Коммерческое помещение${size}`
+    default:
+      return rooms > 0 ? `${rooms}-комн. квартира${size}` : `Квартира${size}`
   }
-  return null
 }
 
-export function mapType(kindText: string): PropertyType {
-  if (LAND_HINT.test(kindText)) return 'LAND'
-  if (COMMERCIAL_HINT.test(kindText)) return 'COMMERCIAL'
-  if (TOWNHOUSE_HINT.test(kindText)) return 'TOWNHOUSE'
-  if (HOUSE_HINT.test(kindText)) return 'HOUSE'
-  // Default residential bucket; studios are rooms=0, not a type.
-  return 'APARTMENT'
-}
+// Maps one <estate-object> node to the feed-owned listing fields, or null when
+// it lacks an id, a resolvable direction, or an importable status.
+export function mapListing(object: XmlNode): MappedListing | null {
+  const externalId = (textAt(object, 'feedId') ?? textAt(object, 'id'))?.trim()
+  if (!externalId) return null
 
-// Only objects flagged for the company site are importable (§ "Решения").
-export function isImportable(object: QuickDealFeedObject): boolean {
-  return object.isSendToCompanySite === true || object.export === 'companySite'
-}
+  const status = mapStatus(textAt(object, 'status'))
+  if (!status) return null
 
-// Maps one feed object to the feed-owned listing fields, or null when it is too
-// empty to publish (no id, title, or resolvable direction).
-export function mapListing(object: QuickDealFeedObject): MappedListing | null {
-  const externalId = object.feedId?.trim()
-  const title = object.title?.trim()
-  if (!externalId || !title) return null
+  const countryIso = textAt(object, 'address', 'countryIsoCode')
+  const realtyType = (textAt(object, 'realtyType') ?? '').toLowerCase()
+  const projectStatus = textAt(object, 'building', 'projectStatus')
 
-  const kindText = `${object.objectType ?? ''} ${object.objectView ?? ''}`.trim()
-  const direction = mapDirection(object.countryIsoCode, kindText)
+  const direction = mapDirection(countryIso, realtyType, projectStatus)
   if (!direction) return null
 
-  const type = mapType(kindText)
+  const type = mapType(realtyType)
   const foreign = direction === 'DUBAI' || direction === 'SAUDI'
 
   // Foreign → USD standardizedPrice; domestic → ₽ price. Missing/zero stays 0
   // and surfaces as "Цена по запросу".
   const price = foreign
-    ? toInt(object.standardizedPrice) ?? toInt(object.price) ?? 0
-    : toInt(object.price) ?? 0
+    ? toInt(textAt(object, 'bargainTerms', 'standardizedPrice')) ?? 0
+    : toInt(textAt(object, 'bargainTerms', 'price')) ?? 0
   const currency: Currency = foreign ? 'USD' : 'RUB'
 
-  const photos = (object.photos ?? []).filter((url): url is string => typeof url === 'string' && url.length > 0)
+  const rooms = Math.max(0, toInt(textAt(object, 'realty', 'roomsCount')) ?? 0)
+
+  const landValue = toNumber(textAt(object, 'realty', 'land', 'area', 'value'))
+  const area =
+    type === 'LAND' && landValue != null
+      ? Math.round(areaToSquareMeters(landValue, textAt(object, 'realty', 'land', 'area', 'unit')))
+      : Math.max(0, toInt(textAt(object, 'realty', 'totalArea', 'value')) ?? 0)
+
+  const sale = child(child(object, 'bargainTerms'), 'sale')
+  const paymentMethods = children(sale, 'paymentMethods').map((node) => node.text.toLowerCase())
+  const installment = paymentMethods.some((method) => method.includes('installment'))
+
+  const assigned = child(object, 'assigned')
+
+  const utilities: Utility[] = []
+  if (type === 'LAND') {
+    if (textAt(object, 'realty', 'waterType')) utilities.push('WATER')
+    if (textAt(object, 'realty', 'sewerageType')) utilities.push('SEWERAGE')
+    if (textAt(object, 'realty', 'gasType') || textAt(object, 'building', 'hasGas') === 'true') utilities.push('GAS')
+    if (textAt(object, 'realty', 'electricityType') || textAt(object, 'realty', 'powerType')) {
+      utilities.push('ELECTRICITY')
+    }
+  }
 
   return {
     externalId,
@@ -220,31 +268,32 @@ export function mapListing(object: QuickDealFeedObject): MappedListing | null {
     externalSource: 'quickDeal',
     direction,
     type,
-    status: (object.status ?? '').toLowerCase() === 'sold' ? 'SOLD' : 'PUBLISHED',
-    title,
-    rooms: Math.max(0, toInt(object.rooms) ?? 0),
-    area: Math.max(0, toInt(object.area) ?? 0),
-    floor: toInt(object.floor),
-    totalFloors: toInt(object.totalFloors),
-    complex: object.complex?.trim() || null,
-    city: object.city?.trim() || '—',
-    district: object.district?.trim() || null,
+    status,
+    title: textAt(object, 'title') ?? fallbackTitle(type, rooms, area),
+    rooms,
+    area,
+    floor: toInt(textAt(object, 'realty', 'floorNumber')),
+    totalFloors: toInt(textAt(object, 'building', 'floorsCount')),
+    complex: textAt(object, 'developmentHouse', 'name') ?? textAt(object, 'developmentBuilding', 'name') ?? null,
+    city:
+      textAt(object, 'address', 'city') ??
+      textAt(object, 'address', 'settlement') ??
+      textAt(object, 'address', 'region') ??
+      '—',
+    district: textAt(object, 'address', 'district') ?? textAt(object, 'address', 'area') ?? null,
     price,
     currency,
-    installment: object.installment === true,
-    isNewBuilding: direction === 'NEW' || NEW_BUILDING_HINT.test(kindText),
-    delivery: object.delivery?.trim() || null,
-    photos,
-    lat: toNumber(object.lat),
-    lng: toNumber(object.lng),
-    landUse: type === 'LAND' ? matchFrom(object.landUse, LAND_USE_MAP) : null,
-    utilities:
-      type === 'LAND'
-        ? [...new Set((object.utilities ?? []).map((u) => matchFrom(u, UTILITY_MAP)).filter((u): u is Utility => u != null))]
-        : [],
-    commercialKind: type === 'COMMERCIAL' ? matchFrom(object.commercialKind, COMMERCIAL_KIND_MAP) : null,
-    managerName: object.assigned?.name?.trim() || null,
-    managerPhone: object.assigned?.phone?.trim() || null,
-    managerPhotoUrl: object.assigned?.photo?.trim() || null,
+    installment,
+    isNewBuilding: direction === 'NEW' || NEW_PROJECT_STATUS.test(projectStatus ?? ''),
+    delivery: textAt(object, 'building', 'usageStartYear') ?? null,
+    photos: collectPhotos(object),
+    lat: toNumber(textAt(object, 'geoLat') ?? textAt(object, 'address', 'geoLat')),
+    lng: toNumber(textAt(object, 'geoLon') ?? textAt(object, 'address', 'geoLon')),
+    landUse: type === 'LAND' ? matchFrom(textAt(object, 'realty', 'land', 'permittedLandUseType'), LAND_USE_MAP) : null,
+    utilities: [...new Set(utilities)],
+    commercialKind: type === 'COMMERCIAL' ? matchFrom(realtyType, COMMERCIAL_KIND_MAP) : null,
+    managerName: managerName(assigned),
+    managerPhone: textAt(assigned, 'mobilePhone') ?? null,
+    managerPhotoUrl: textAt(assigned, 'photo') ?? null,
   }
 }

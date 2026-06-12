@@ -1,28 +1,24 @@
-import type { QuickDealFeedObject } from './mapper'
+import { children, parseXml, type XmlNode } from './xml'
 
-export type FeedFetcher = (url: string) => Promise<unknown>
+// Fetcher returns the raw feed body (XML text). Injectable so tests drive the
+// importer with fixtures and no network.
+export type FeedFetcher = (url: string) => Promise<string>
 
 const defaultFetcher: FeedFetcher = async (url) => {
-  const response = await fetch(url, { headers: { accept: 'application/json' } })
+  const response = await fetch(url, { headers: { accept: 'application/xml, text/xml' } })
   if (!response.ok) {
     throw new Error(`QuickDeal feed responded with ${response.status}`)
   }
-  return response.json()
+  return response.text()
 }
 
-// The native feed may return a bare array or wrap the objects under a common
-// key. Normalize both into an object array.
-function extractObjects(payload: unknown): QuickDealFeedObject[] {
-  if (Array.isArray(payload)) return payload as QuickDealFeedObject[]
-  if (payload && typeof payload === 'object') {
-    for (const key of ['objects', 'items', 'data', 'result']) {
-      const value = (payload as Record<string, unknown>)[key]
-      if (Array.isArray(value)) return value as QuickDealFeedObject[]
-    }
-  }
-  return []
-}
-
-export async function fetchFeed(url: string, fetcher: FeedFetcher = defaultFetcher): Promise<QuickDealFeedObject[]> {
-  return extractObjects(await fetcher(url))
+// Parses the feed and returns one node per <estate-object>. A body that is not
+// the expected <estate-objects> document yields an empty list, which the
+// importer treats as a suspicious empty feed (keeps the last known catalog
+// rather than mass-archiving).
+export async function fetchFeed(url: string, fetcher: FeedFetcher = defaultFetcher): Promise<XmlNode[]> {
+  const body = await fetcher(url)
+  const root = parseXml(body)
+  const container = root.children.find((node) => node.tag === 'estate-objects') ?? root
+  return children(container, 'estate-object')
 }

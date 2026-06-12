@@ -2,28 +2,48 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 
 import { createPrisma } from '../db'
 import { QuickDealImporter } from './service'
-import type { QuickDealFeedObject } from './mapper'
 
 const databaseUrl = process.env.TEST_DATABASE_URL
 const maybeDescribe = databaseUrl ? describe : describe.skip
+
+// Minimal AE-flat estate-object in the real `format=quickDeal` XML shape. Only
+// the fields the importer reads are emitted; everything is overridable.
+type ObjectSpec = {
+  feedId: string
+  title?: string
+  standardizedPrice?: number
+  status?: string
+  sendToSite?: boolean
+}
+
+function objectXml(spec: ObjectSpec): string {
+  const { feedId, title = 'Marina view', standardizedPrice = 450000, status = 'active', sendToSite = true } = spec
+  return `<estate-object>
+    <feedId>${feedId}</feedId>
+    <realtyType>flat</realtyType>
+    <status>${status}</status>
+    <address><city>Dubai Marina</city><countryIsoCode>AE</countryIsoCode></address>
+    <title>${title}</title>
+    <geoLat>25.08</geoLat><geoLon>55.14</geoLon>
+    <bargainTerms><price>22000000</price><standardizedPrice>${standardizedPrice}</standardizedPrice></bargainTerms>
+    <feedSettings><isSendToCompanySite>${sendToSite}</isSendToCompanySite></feedSettings>
+    <images><src><name>https://cdn/${feedId}.jpg</name><default>true</default></src></images>
+    <realty><roomsCount>2</roomsCount><totalArea><value>150</value><unit>squareMeter</unit></totalArea></realty>
+  </estate-object>`
+}
+
+function feedXml(objects: ObjectSpec[]): string {
+  return `<?xml version="1.0" encoding="UTF-8"?><estate-objects>${objects.map(objectXml).join('')}</estate-objects>`
+}
 
 maybeDescribe('QuickDeal importer sync', () => {
   const prisma = createPrisma(databaseUrl!)
 
   const config = { feedUrl: 'https://feed.example/quickDeal', token: 'secret' }
-  const importerWith = (objects: QuickDealFeedObject[]) =>
-    new QuickDealImporter(prisma, config, async () => objects)
+  const importerWith = (objects: ObjectSpec[]) =>
+    new QuickDealImporter(prisma, config, async () => feedXml(objects))
 
-  const dubai: QuickDealFeedObject = {
-    feedId: 'QD_RS_100',
-    isSendToCompanySite: true,
-    countryIsoCode: 'AE',
-    objectType: 'Apartment',
-    title: 'Marina view',
-    standardizedPrice: 450000,
-    photos: ['https://cdn/1.jpg'],
-    status: 'active',
-  }
+  const dubai: ObjectSpec = { feedId: 'QD_RS_100', title: 'Marina view', standardizedPrice: 450000 }
 
   beforeEach(async () => {
     await prisma.lead.deleteMany()
@@ -50,7 +70,7 @@ maybeDescribe('QuickDeal importer sync', () => {
 
   test('re-sync updates feed fields but never the slug or site layer', async () => {
     await importerWith([dubai]).sync()
-    const before = (await prisma.property.findFirstOrThrow({ where: { externalId: 'QD_RS_100' } }))
+    const before = await prisma.property.findFirstOrThrow({ where: { externalId: 'QD_RS_100' } })
 
     // Editorial site-layer edits an admin would make.
     await prisma.property.update({
@@ -58,7 +78,9 @@ maybeDescribe('QuickDeal importer sync', () => {
       data: { slug: 'custom-marina', premium: true, badges: ['У моря'], placeholderTone: 'sand' },
     })
 
-    const result = await importerWith([{ ...dubai, title: 'Marina view — renovated', standardizedPrice: 480000 }]).sync()
+    const result = await importerWith([
+      { ...dubai, title: 'Marina view — renovated', standardizedPrice: 480000 },
+    ]).sync()
     expect(result).toMatchObject({ status: 'ok', created: 0, updated: 1 })
 
     const after = await prisma.property.findUniqueOrThrow({ where: { id: before.id } })
@@ -72,7 +94,7 @@ maybeDescribe('QuickDeal importer sync', () => {
 
   test('listings that disappear from the feed are archived (page survives)', async () => {
     await importerWith([dubai]).sync()
-    const other: QuickDealFeedObject = { ...dubai, feedId: 'QD_RS_200', title: 'Palm villa' }
+    const other: ObjectSpec = { feedId: 'QD_RS_200', title: 'Palm villa' }
 
     const result = await importerWith([other]).sync()
     expect(result.archived).toBe(1)
@@ -101,7 +123,7 @@ maybeDescribe('QuickDeal importer sync', () => {
 
   test('a feed with objects but none flagged for the site archives the catalog', async () => {
     await importerWith([dubai]).sync()
-    const result = await importerWith([{ ...dubai, isSendToCompanySite: false, export: undefined }]).sync()
+    const result = await importerWith([{ ...dubai, sendToSite: false }]).sync()
     expect(result.status).toBe('ok')
     const row = await prisma.property.findFirstOrThrow({ where: { externalId: 'QD_RS_100' } })
     expect(row.status).toBe('ARCHIVED')

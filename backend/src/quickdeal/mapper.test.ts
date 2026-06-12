@@ -1,24 +1,38 @@
 import { describe, expect, test } from 'bun:test'
 
-import { isImportable, mapDirection, mapListing, mapType, slugFromListing, type QuickDealFeedObject } from './mapper'
+import { fetchFeed } from './feed'
+import { SAMPLE_FEED_XML } from './feed.fixture'
+import { isImportable, mapDirection, mapListing, mapType, slugFromListing, type MappedListing } from './mapper'
+import { parseXml } from './xml'
+
+const objectsFromXml = (xml: string) => fetchFeed('https://feed.example', async () => xml)
+
+async function mapSample(): Promise<Record<string, MappedListing>> {
+  const objects = await objectsFromXml(SAMPLE_FEED_XML)
+  const mapped = objects.filter(isImportable).map(mapListing).filter((l): l is MappedListing => l != null)
+  return Object.fromEntries(mapped.map((listing) => [listing.externalId, listing]))
+}
 
 describe('QuickDeal direction & type mapping', () => {
-  test('RU new build → NEW, RU other → RESALE', () => {
-    expect(mapDirection('RU', 'Квартира в новостройке')).toBe('NEW')
-    expect(mapDirection('RU', 'Квартира')).toBe('RESALE')
+  test('RU resale vs new build keys off realtyType / projectStatus', () => {
+    expect(mapDirection('RU', 'flat', 'readySecondary')).toBe('RESALE')
+    expect(mapDirection('RU', 'flat', 'building')).toBe('NEW')
+    expect(mapDirection('RU', 'newBuildingFlat', undefined)).toBe('NEW')
+    expect(mapDirection('RU', 'land', undefined)).toBe('RESALE')
   })
 
-  test('AE → DUBAI, SA → SAUDI', () => {
-    expect(mapDirection('AE', 'Apartment')).toBe('DUBAI')
-    expect(mapDirection('SA', 'Apartment')).toBe('SAUDI')
+  test('country ISO drives foreign directions', () => {
+    expect(mapDirection('AE', 'flat', undefined)).toBe('DUBAI')
+    expect(mapDirection('SA', 'flat', undefined)).toBe('SAUDI')
+    expect(mapDirection('FR', 'flat', undefined)).toBeNull()
   })
 
-  test('types resolve from kind text; studio is not a type', () => {
-    expect(mapType('Участок ИЖС')).toBe('LAND')
-    expect(mapType('Офисное помещение')).toBe('COMMERCIAL')
-    expect(mapType('Таунхаус')).toBe('TOWNHOUSE')
-    expect(mapType('Коттедж')).toBe('HOUSE')
-    expect(mapType('Квартира-студия')).toBe('APARTMENT')
+  test('types resolve from realtyType', () => {
+    expect(mapType('land')).toBe('LAND')
+    expect(mapType('flat')).toBe('APARTMENT')
+    expect(mapType('house')).toBe('HOUSE')
+    expect(mapType('townhouse')).toBe('TOWNHOUSE')
+    expect(mapType('office')).toBe('COMMERCIAL')
   })
 })
 
@@ -33,67 +47,73 @@ describe('slugFromListing', () => {
 })
 
 describe('isImportable', () => {
-  test('honours the company-site flags only', () => {
-    expect(isImportable({ isSendToCompanySite: true })).toBe(true)
-    expect(isImportable({ export: 'companySite' })).toBe(true)
-    expect(isImportable({})).toBe(false)
+  test('requires the company-site flag and a non-hidden object', () => {
+    const yes = parseXml('<estate-object><feedSettings><isSendToCompanySite>true</isSendToCompanySite></feedSettings></estate-object>')
+      .children[0]!
+    const hidden = parseXml('<estate-object><isHidden>true</isHidden><feedSettings><isSendToCompanySite>true</isSendToCompanySite></feedSettings></estate-object>')
+      .children[0]!
+    const off = parseXml('<estate-object><feedSettings><isSendToCompanySite>false</isSendToCompanySite></feedSettings></estate-object>')
+      .children[0]!
+    expect(isImportable(yes)).toBe(true)
+    expect(isImportable(hidden)).toBe(false)
+    expect(isImportable(off)).toBe(false)
   })
 })
 
-describe('mapListing', () => {
-  const dubai: QuickDealFeedObject = {
-    feedId: 'QD_RS_900',
-    isSendToCompanySite: true,
-    countryIsoCode: 'AE',
-    objectType: 'Apartment',
-    title: 'Marina view 2BR',
-    rooms: 2,
-    area: 96,
-    standardizedPrice: 450000,
-    price: 41000000,
-    photos: ['https://cdn.quickdeal/1.jpg'],
-    assigned: { name: 'Ислам', phone: '+7 900 000-00-00', photo: 'https://cdn/m.jpg' },
-    status: 'active',
-  }
-
-  test('foreign listing prices in USD from standardizedPrice and mirrors the manager', () => {
-    const mapped = mapListing(dubai)!
-    expect(mapped.direction).toBe('DUBAI')
-    expect(mapped.currency).toBe('USD')
-    expect(mapped.price).toBe(450000)
-    expect(mapped.managerName).toBe('Ислам')
-    expect(mapped.photos).toEqual(['https://cdn.quickdeal/1.jpg'])
-    expect(mapped.status).toBe('PUBLISHED')
+describe('mapListing against the real QuickDeal XML shape', () => {
+  test('parses all three estate-objects from the feed document', async () => {
+    const objects = await objectsFromXml(SAMPLE_FEED_XML)
+    expect(objects).toHaveLength(3)
   })
 
-  test('sold status maps through', () => {
-    expect(mapListing({ ...dubai, status: 'sold' })!.status).toBe('SOLD')
+  test('RU land: RESALE/LAND, sotka area converted to m², ИЖС land use, water utility', async () => {
+    const land = (await mapSample())['QD_RS_1000001']!
+    expect(land.direction).toBe('RESALE')
+    expect(land.type).toBe('LAND')
+    expect(land.status).toBe('PUBLISHED')
+    expect(land.currency).toBe('RUB')
+    expect(land.price).toBe(1500000)
+    expect(land.area).toBe(800) // 8 sotka × 100
+    expect(land.landUse).toBe('IZHS')
+    expect(land.utilities).toEqual(['WATER'])
+    expect(land.title).toBe('Земельный участок, 800 м²') // no <title> → fallback
+    expect(land.city).toBe('Тестовка') // settlement, no city
+    expect(land.district).toBe('Тестовский')
+    expect(land.lat).toBeCloseTo(43.135, 3)
+    expect(land.managerName).toBe('Иван Тестов')
+    expect(land.managerPhone).toBe('+70000000001')
+    expect(land.photos).toEqual(['https://cdn.example/land/1.jpeg'])
   })
 
-  test('missing price stays 0 (rendered as "on request")', () => {
-    const mapped = mapListing({ ...dubai, standardizedPrice: undefined, price: undefined })!
-    expect(mapped.price).toBe(0)
+  test('AE flat: DUBAI/APARTMENT, USD standardized price, installments, complex, delivery', async () => {
+    const flat = (await mapSample())['QD_RS_1000002']!
+    expect(flat.direction).toBe('DUBAI')
+    expect(flat.type).toBe('APARTMENT')
+    expect(flat.currency).toBe('USD')
+    expect(flat.price).toBe(304932) // standardizedPrice, not the ₽ price
+    expect(flat.rooms).toBe(2)
+    expect(flat.area).toBe(155)
+    expect(flat.floor).toBe(3)
+    expect(flat.totalFloors).toBe(30)
+    expect(flat.complex).toBe('W Residences Dubai Downtown')
+    expect(flat.installment).toBe(true)
+    expect(flat.delivery).toBe('2025')
+    expect(flat.isNewBuilding).toBe(false) // readySecondary
+    expect(flat.title).toBe('Квартира в Дубай Марина 150 кв')
+    expect(flat.city).toBe('Дубай Марина')
   })
 
-  test('domestic listing prices in ₽ and degrades gracefully on missing fields', () => {
-    const mapped = mapListing({
-      feedId: 'QD_RS_5',
-      isSendToCompanySite: true,
-      countryIsoCode: 'RU',
-      objectType: 'Квартира в новостройке',
-      title: 'ЖК Грозный Сити',
-      price: 7680000,
-    })!
-    expect(mapped.direction).toBe('NEW')
-    expect(mapped.currency).toBe('RUB')
-    expect(mapped.isNewBuilding).toBe(true)
-    expect(mapped.lat).toBeNull()
-    expect(mapped.city).toBe('—')
-  })
-
-  test('skips objects without id, title, or resolvable direction', () => {
-    expect(mapListing({ isSendToCompanySite: true, title: 'x' })).toBeNull()
-    expect(mapListing({ feedId: 'QD_1', countryIsoCode: 'RU' })).toBeNull()
-    expect(mapListing({ feedId: 'QD_1', title: 'x', countryIsoCode: 'XX' })).toBeNull()
+  test('RU house: RESALE/HOUSE, totalArea in m² (not the plot), fallback title', async () => {
+    const house = (await mapSample())['QD_RS_1000003']!
+    expect(house.direction).toBe('RESALE')
+    expect(house.type).toBe('HOUSE')
+    expect(house.area).toBe(135) // totalArea, not the 6-sotka plot
+    expect(house.rooms).toBe(5)
+    expect(house.totalFloors).toBe(1)
+    expect(house.title).toBe('Дом, 135 м²')
+    expect(house.city).toBe('Гудермес')
+    expect(house.district).toBe('Гудермесский')
+    expect(house.photos[0]).toBe('https://cdn.example/house/2.jpeg') // default photo first
+    expect(house.managerName).toBe('Пётр Домов')
   })
 })
