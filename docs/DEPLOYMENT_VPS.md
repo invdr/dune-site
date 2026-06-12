@@ -102,6 +102,12 @@ COOKIE_SECURE=true
 ACCESS_TOKEN_TTL_SECONDS=900
 REFRESH_TOKEN_TTL_DAYS=30
 
+# Public self-registration is OFF in production. Leave this "false" so nobody
+# who finds POST /api/auth/register can claim an admin account. To create the
+# first admin (or add staff later), flip to "true", restart dune-backend,
+# register, then set it back to "false" and restart again (§11).
+REGISTRATION_ENABLED=false
+
 # QuickDeal feed (object sync). Leave blank to disable the importer.
 QUICKDEAL_FEED_URL=
 QUICKDEAL_FEED_TOKEN=
@@ -348,7 +354,29 @@ After certbot, confirm `CORS_ORIGINS` and the build-time API URLs all use
 
 ## 11. Post-deploy configuration (in the admin panel)
 
-Log in to `https://admin.dunestate.ru` and set under **Settings**:
+### Create the first admin (registration is gated)
+
+There is no public sign-up UI, and `REGISTRATION_ENABLED=false` blocks the
+register endpoint. To create the first account, enable it briefly:
+
+```bash
+sed -i 's/^REGISTRATION_ENABLED=.*/REGISTRATION_ENABLED=true/' /opt/dune/backend/.env
+sudo systemctl restart dune-backend
+
+curl -fsS -X POST https://api.dunestate.ru/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"a-strong-password","displayName":"Admin"}'
+
+# Close it again — important.
+sed -i 's/^REGISTRATION_ENABLED=.*/REGISTRATION_ENABLED=false/' /opt/dune/backend/.env
+sudo systemctl restart dune-backend
+```
+
+Use the same steps to add staff users later. Log in at `https://admin.dunestate.ru`.
+
+### Settings
+
+Under **Settings** set:
 
 - **Telegram** — bot token + chat id (turns on lead notifications).
 - **Bitrix24** — inbound webhook URL + enable toggle (turns on CRM delivery;

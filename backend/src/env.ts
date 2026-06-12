@@ -43,6 +43,10 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(15 * 60),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   COOKIE_SECURE: booleanStringSchema,
+  // Public self-registration is OFF by default so the admin API cannot be
+  // claimed by anyone who finds the endpoint. Flip to "true" temporarily only
+  // while creating a new staff account, then set it back to "false".
+  REGISTRATION_ENABLED: booleanStringSchema,
   SPACES_REGION: optionalStringSchema,
   SPACES_BUCKET: optionalStringSchema,
   SPACES_ENDPOINT: optionalUrlSchema,
