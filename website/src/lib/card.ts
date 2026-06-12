@@ -1,7 +1,7 @@
 import type { PropertyDto } from '@dune/contracts'
 
 import { metaByDirection } from './directions'
-import { escapeHtml, floorLabel, mainPrice, roomsLabel } from './format'
+import { escapeHtml, mainPrice, propertyFacts } from './format'
 import { ICONS } from './icons'
 import { phHtml } from './placeholder'
 
@@ -57,10 +57,10 @@ export function cardHtml(p: PropertyDto, opts: CardOptions = {}): string {
       `<div class="card__price-badge">${escapeHtml(mainPrice(p.pricing))}</div>`,
   })
 
-  const third =
-    p.isNewBuilding && p.delivery
-      ? `<div><b>${escapeHtml(p.delivery)}</b><span>срок сдачи</span></div>`
-      : `<div><b>${escapeHtml(roomsLabel(p.rooms))}</b><span>комнат</span></div>`
+  const metaCells = propertyFacts(p)
+    .slice(0, 3)
+    .map((f) => `<div><b>${escapeHtml(f.b)}</b><span>${escapeHtml(f.s)}</span></div>`)
+    .join('')
 
   const loc = [p.district, p.city].filter(Boolean).map((s) => escapeHtml(String(s))).join(', ')
   const complex = p.complex ? `<div class="card__complex">${escapeHtml(p.complex)}</div>` : ''
@@ -73,9 +73,7 @@ export function cardHtml(p: PropertyDto, opts: CardOptions = {}): string {
     complex +
     `<div class="card__loc">${ICONS.pin}<span>${loc}</span></div>` +
     '<div class="card__meta">' +
-    `<div><b>${p.area} м²</b><span>площадь</span></div>` +
-    `<div><b>${escapeHtml(floorLabel(p.floor, p.totalFloors))}</b><span>этаж</span></div>` +
-    third +
+    metaCells +
     '</div>' +
     '</div>' +
     '</a>'
