@@ -213,6 +213,54 @@ model Property {
   @@map("properties")
 }
 
+// Residential complex (ЖК) — an admin-authored marketing entity for new-build
+// projects. Apartment units (Property rows with a matching `complex` name) are
+// joined at read time to surface available lots and the "от X ₽/м²" headline.
+model Complex {
+  id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  // Public URL identifier, e.g. "zhk-an-nur".
+  slug            String            @unique
+  // ЖК name; also the join key to Property.complex for unit listings.
+  name            String
+  status          PropertyStatus    @default(DRAFT)
+  direction       PropertyDirection @default(NEW)
+  country         Country           @default(RU)
+  city            String
+  district        String?
+  // Developer / застройщик.
+  developer       String?
+  // Handover copy, e.g. "Сдан" or "IV кв. 2026".
+  delivery        String?
+  // Long marketing description (plain text).
+  description     String?
+  photos          String[]
+  // Branded gradient tone used when no photos are present ('', 'ink', 'sand').
+  placeholderTone String?           @map("placeholder_tone")
+  // Bespoke marketing labels (e.g. "Бизнес-класс").
+  badges          String[]
+  // Bullet feature list shown on the complex page.
+  features        String[]
+  // Display-ready characteristics, stored as [{ label, value }].
+  attributes      Json              @default("[]")
+  // "Рекомендуемые" / featured flag for the catalog.
+  premium         Boolean           @default(false)
+  // Manual aggregate fallbacks shown when no units are linked; when linked
+  // units exist these are computed from them at read time.
+  priceFrom       Int?              @map("price_from")
+  areaFrom        Int?              @map("area_from")
+  currency        Currency          @default(RUB)
+  address         String?
+  lat             Float?
+  lng             Float?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  publishedAt     DateTime?         @map("published_at")
+
+  @@index([status], map: "complexes_status_idx")
+  @@index([direction], map: "complexes_direction_idx")
+  @@map("complexes")
+}
+
 model Lead {
   id             String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
   name           String

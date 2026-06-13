@@ -7,6 +7,8 @@ import type { AppEnv } from './env'
 import { createAuthRoutes } from './auth/routes'
 import { AuthService } from './auth/service'
 import { createPublicContactRoutes } from './contacts/routes'
+import { ComplexService } from './complexes/service'
+import { createAdminComplexRoutes, createPublicComplexRoutes } from './complexes/routes'
 import { CurrencyService } from './currency/service'
 import { createPublicFxRoutes } from './currency/routes'
 import { errorResponse, handleError, validationErrorHook } from './http/errors'
@@ -30,6 +32,7 @@ type AppBindings = {
   Variables: {
     authService: AuthService
     propertyService: PropertyService
+    complexService: ComplexService
     currencyService: CurrencyService
     leadService: LeadService
     managerService: ManagerService
@@ -48,6 +51,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   const authService = new AuthService(prisma, env)
   const currencyService = new CurrencyService(prisma)
   const propertyService = new PropertyService(prisma, currencyService)
+  const complexService = new ComplexService(prisma, currencyService)
   const leadService = new LeadService(prisma)
   const managerService = new ManagerService(prisma)
   const siteService = new SiteService(prisma)
@@ -73,6 +77,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.use('*', async (c, next) => {
     c.set('authService', authService)
     c.set('propertyService', propertyService)
+    c.set('complexService', complexService)
     c.set('currencyService', currencyService)
     c.set('leadService', leadService)
     c.set('managerService', managerService)
@@ -98,6 +103,8 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/auth', createAuthRoutes())
   app.route('/api/properties', createPublicPropertyRoutes())
   app.route('/api/admin/properties', createAdminPropertyRoutes())
+  app.route('/api/complexes', createPublicComplexRoutes())
+  app.route('/api/admin/complexes', createAdminComplexRoutes())
   app.route('/api/fx', createPublicFxRoutes())
   app.route('/api/leads', createPublicLeadRoutes())
   app.route('/api/admin/leads', createAdminLeadRoutes())
