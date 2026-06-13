@@ -78,7 +78,7 @@ function renderPills(): void {
   if (!host) return
   const pills = activePills(state)
   host.innerHTML = pills
-    .map((p) => `<button class="chip is-on" type="button" data-pill="${p.key}">${p.label} <span style="margin-left:4px;font-weight:700">×</span></button>`)
+    .map((p) => `<button class="chip is-on" type="button" data-pill="${p.key}">${p.label} <span class="chip__x">×</span></button>`)
     .join('')
   host.style.display = pills.length ? 'flex' : 'none'
   host.style.marginBottom = pills.length ? '22px' : '0'

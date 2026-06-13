@@ -69,7 +69,7 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
         <div class="crumbs">
           <a href="/">Главная</a><span>/</span>
           <a href="/catalog">Каталог</a><span>/</span>
-          <span id="crumbDir" style="color:rgba(255,255,255,.85)">{head.crumb}</span>
+          <span id="crumbDir" class="crumbs__current">{head.crumb}</span>
         </div>
         <h1 id="pageTitle" set:html={head.titleHtml}></h1>
         <p class="page-head__sub" id="pageSub">{head.sub}</p>
@@ -87,7 +87,6 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
               class="drawer__close hide-desktop"
               data-filters-close
               aria-label="Закрыть"
-              style="border-color:var(--line);color:var(--ink)"
             >
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"></path></svg>
             </button>
@@ -177,7 +176,7 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
             </button>
             <div class="catalog__count">Найдено <b id="resultCount">{result.total}</b></div>
             <div class="catalog__sort">
-              <span class="muted hide-mobile" style="font-size:13px">Сортировка:</span>
+              <span class="muted hide-mobile">Сортировка:</span>
               <select id="sortSel" aria-label="Сортировка">
                 {sorts.map((s) => (
                   <option value={s.value} selected={state.sort === s.value}>{s.label}</option>
@@ -188,7 +187,7 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
 
           <div class="chips" id="activePills" style={pills.length ? 'margin-bottom:22px' : 'display:none'}>
             {pills.map((p) => (
-              <button class="chip is-on" type="button" data-pill={p.key}>{p.label} <span style="margin-left:4px;font-weight:700">×</span></button>
+              <button class="chip is-on" type="button" data-pill={p.key}>{p.label} <span class="chip__x">×</span></button>
             ))}
           </div>
 
@@ -201,17 +200,17 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
           <div class="catalog__empty" id="emptyState" hidden={result.total > 0}>
             <b>Ничего не найдено</b>
             <p class="muted">Попробуйте смягчить фильтры или сбросить их.</p>
-            <button class="btn btn--ghost btn--sm" id="resetBtn2" type="button" style="margin-top:16px">Сбросить фильтры</button>
+            <button class="btn btn--ghost btn--sm" id="resetBtn2" type="button">Сбросить фильтры</button>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section--tight" style="background:var(--bordo);color:#fff">
-      <div class="container" style="display:flex;justify-content:space-between;align-items:center;gap:30px;flex-wrap:wrap">
+    <section class="section--tight cta-band">
+      <div class="container">
         <div>
-          <h2 class="h2" style="color:#fff" set:html={'Не нашли <b style=\'color:var(--sand)\'>подходящее?</b>'}></h2>
-          <p style="color:rgba(255,255,255,.75);margin-top:10px;max-width:46ch">Оставьте заявку — подберём объект под ваш бюджет и задачу из закрытой базы.</p>
+          <h2 class="h2" set:html={'Не нашли <b>подходящее?</b>'}></h2>
+          <p>Оставьте заявку — подберём объект под ваш бюджет и задачу из закрытой базы.</p>
         </div>
         <a class="btn btn--sand" href="/#contact">Получить подборку</a>
       </div>

@@ -41,7 +41,7 @@ const galleryCells: string[] = []
 for (let i = 0; i < 4; i++) {
   const overlay =
     i === 0
-      ? `<div class="card__tags" style="left:18px;top:18px">${property.badges
+      ? `<div class="card__tags">${property.badges
           .slice(0, 3)
           .map((b, j) => `<span class="tag tag--${j === 0 ? 'bordo' : 'sand'}">${b}</span>`)
           .join('')}</div>`
@@ -124,7 +124,7 @@ const attributes = property.attributes
       <a href="/">Главная</a><span>/</span>
       <a href="/catalog">Каталог</a><span>/</span>
       <a href={`/catalog?dir=${meta.key}`}>{meta.label}</a><span>/</span>
-      <span style="color:var(--ink)">{property.title}</span>
+      <span class="crumbs__current">{property.title}</span>
     </div>
 
     <div class="gallery" id="gallery" set:html={galleryHtml}></div>
@@ -141,7 +141,7 @@ const attributes = property.attributes
 
     <div class="pdp__layout">
       <div class="pdp__content">
-        <div class="chips" style="margin-bottom:6px">
+        <div class="chips">
           {property.badges.map((b, i) => (
             <span class={`tag tag--${i === 0 ? 'bordo' : 'sand'}`}>{b}</span>
           ))}
@@ -190,7 +190,7 @@ const attributes = property.attributes
             <div class="pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.6"></circle></svg></div>
           )}
         </div>
-        <p class="muted" style="margin-top:14px;font-size:14px">
+        <p class="muted pdp__map-note">
           {locText}. {hasPoint ? 'Точка на карте — расположение объекта.' : 'Точный адрес сообщит менеджер.'}
         </p>
       </div>
@@ -200,7 +200,7 @@ const attributes = property.attributes
           <div class="price-card__price">{priceMain}</div>
           {perM && <div class="price-card__permeter">{perM}</div>}
           {priceExtra.length > 0 && (
-            <div class="price-card__permeter" style="margin-top:8px">{priceExtra.join(' · ')}</div>
+            <div class="price-card__permeter price-card__permeter--extra">{priceExtra.join(' · ')}</div>
           )}
           {property.installment && (
             <div class="price-card__inst">
@@ -212,15 +212,15 @@ const attributes = property.attributes
             </div>
           )}
           <a class="btn btn--primary btn--block" href="#lead">Оставить заявку</a>
-          {contactTel && <a class="btn btn--ghost btn--block" href={contactTel} style="margin-top:10px">Заказать звонок</a>}
-          <button class="btn btn--ghost btn--block" type="button" data-fav={property.slug} aria-pressed="false" style="margin-top:10px">
+          {contactTel && <a class="btn btn--ghost btn--block" href={contactTel}>Заказать звонок</a>}
+          <button class="btn btn--ghost btn--block" type="button" data-fav={property.slug} aria-pressed="false">
             <Fragment set:html={ICONS.heart} /> В избранное
           </button>
         </div>
 
         <div class="agent">
           {contact?.photo ? (
-            <img class="agent__ava" src={contact.photo} alt={contactName} style="object-fit:cover" />
+            <img class="agent__ava" src={contact.photo} alt={contactName} />
           ) : (
             <div class="agent__ava">{initials}</div>
           )}
@@ -232,10 +232,10 @@ const attributes = property.attributes
       </aside>
     </div>
 
-    <section class="section lead-sec" id="lead" style="margin-top:clamp(40px,5vw,72px);border-radius:var(--r-lg)">
+    <section class="section lead-sec" id="lead">
       <div class="container lead-grid">
         <div class="fade-up">
-          <span class="eyebrow" style="color:var(--sand)">Заявка по объекту</span>
+          <span class="eyebrow eyebrow--sand">Заявка по объекту</span>
           <h2 class="h2" set:html={'Заинтересовал объект? <b>Свяжемся с вами</b>'}></h2>
           <p class="lead">Оставьте заявку — менеджер уточнит детали по этому объекту и пришлёт похожие варианты под ваш бюджет.</p>
         </div>
@@ -250,11 +250,11 @@ const attributes = property.attributes
     </section>
 
     {similar.length > 0 && (
-      <section class="section--tight" style="padding-bottom:0">
+      <section class="section--tight">
         <div class="sec-head">
           <div class="sec-head__txt">
             <span class="eyebrow">Похожие объекты</span>
-            <h2 class="h2" style="margin-top:12px" set:html={'Ещё в этом <b>направлении</b>'}></h2>
+            <h2 class="h2" set:html={'Ещё в этом <b>направлении</b>'}></h2>
           </div>
           <a class="link-more hide-mobile" href={`/catalog?dir=${meta.key}`}>Смотреть все <Fragment set:html={ICONS.arrow} /></a>
         </div>

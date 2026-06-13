@@ -74,7 +74,7 @@ function initSearch(): void {
     // apply to RF directions; disable them for Dubai/Saudi.
     const rub = meta?.currency === 'RUB'
     priceFields.forEach((f) => {
-      f.style.opacity = rub ? '' : '0.45'
+      f.classList.toggle('is-currency-off', !rub)
       f.querySelectorAll<HTMLSelectElement>('select').forEach((s) => {
         s.disabled = !rub
         if (!rub) s.value = ''

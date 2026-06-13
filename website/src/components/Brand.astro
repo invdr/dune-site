@@ -1,16 +1,15 @@
 ---
-// DUNE wordmark + dune/key glyph. `markWidth` lets the footer use a smaller
-// mark; everything else matches the design reference exactly.
+// DUNE wordmark + dune/key glyph. `size="sm"` renders the compact mark used in
+// the footer; everything else matches the design reference exactly.
 interface Props {
-  markWidth?: string
+  size?: 'sm'
   class?: string
 }
-const { markWidth, class: className } = Astro.props
-const markStyle = markWidth ? `width:${markWidth}` : undefined
+const { size, class: className } = Astro.props
 ---
 
-<a class:list={['brand', className]} href="/" aria-label="DUNE Real Estate">
-  <svg class="brand__mark" viewBox="0 0 232 130" fill="currentColor" aria-hidden="true" style={markStyle}>
+<a class:list={['brand', size === 'sm' && 'brand--sm', className]} href="/" aria-label="DUNE Real Estate">
+  <svg class="brand__mark" viewBox="0 0 232 130" fill="currentColor" aria-hidden="true">
     <path
       fill-rule="evenodd"
       d="M40 35 L46 59 L70 65 L46 71 L40 95 L34 71 L10 65 L34 59 Z M84 30 L84 100 L112 100 A35 35 0 0 0 112 30 Z M108 48 a17 17 0 1 0 0.1 0 Z"

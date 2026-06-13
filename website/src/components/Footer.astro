@@ -17,8 +17,8 @@ const year = new Date().getFullYear()
 <footer class="site-footer">
   <div class="container footer-grid">
     <div>
-      <Brand markWidth="48px" />
-      <p style="color:rgba(255,255,255,.55);font-size:14px;max-width:30ch;margin-top:18px">
+      <Brand size="sm" />
+      <p class="footer-about">
         Агентство недвижимости полного цикла. Грозный, Дубай, Эр-Рияд.
       </p>
     </div>
@@ -45,7 +45,7 @@ const year = new Date().getFullYear()
       <div class="footer-contact">
         <a href={telHref}>{phone}</a><br />
         <a href={`mailto:${email}`}>{email}</a><br />
-        <span style="color:rgba(255,255,255,.6)">
+        <span>
           {companyContact ?? 'г. Грозный, пр. В. Путина, 1'}<br />Ежедневно 9:00–20:00
         </span>
       </div>

@@ -39,7 +39,7 @@ const showcaseMedia = showcase
       photo: showcase.photos[0] ?? null,
       extraClass: 'hero__card-media',
       overlay: showcase.badges[0]
-        ? `<span class="tag tag--sand" style="position:absolute;left:14px;top:14px;z-index:3">${showcase.badges[0]}</span>`
+        ? `<span class="tag tag--sand hero__card-badge">${showcase.badges[0]}</span>`
         : '',
     })
   : phHtml({ kind: 'dubai', sun: true, photo: null, extraClass: 'hero__card-media' })
@@ -200,7 +200,7 @@ const directions = [
     </section>
 
     <!-- FEATURED -->
-    <section class="section section--tight" style="background:var(--white);border-block:1px solid var(--line)">
+    <section class="section section--tight section--framed">
       <div class="container">
         <div class="sec-head">
           <div class="sec-head__txt">
@@ -292,7 +292,7 @@ const directions = [
     <section class="section lead-sec" id="contact">
       <div class="container lead-grid">
         <div class="fade-up">
-          <span class="eyebrow" style="color:var(--sand)">Бесплатный подбор</span>
+          <span class="eyebrow eyebrow--sand">Бесплатный подбор</span>
           <h2 class="h2" set:html={'Расскажите, что ищете — <b>подберём за вас</b>'}></h2>
           <p class="lead">Оставьте заявку, и персональный менеджер DUNE свяжется с вами в течение 15 минут, уточнит задачу и пришлёт подборку объектов под ваш бюджет.</p>
           <ul class="lead-pts ul">

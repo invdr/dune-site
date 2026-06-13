@@ -94,6 +94,9 @@
   margin-bottom: 8px;
   font-weight: 600;
 }
+.fav-empty .btn {
+  margin-top: 16px;
+}
 .fav-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

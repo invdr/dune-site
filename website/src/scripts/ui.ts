@@ -25,7 +25,7 @@ function initHeader(): void {
   const h = document.querySelector<HTMLElement>('.site-header')
   if (!h) return
   const on = () => {
-    h.style.boxShadow = window.scrollY > 10 ? '0 10px 30px -16px rgba(0,0,0,.5)' : 'none'
+    h.classList.toggle('is-scrolled', window.scrollY > 10)
   }
   on()
   window.addEventListener('scroll', on, { passive: true })
