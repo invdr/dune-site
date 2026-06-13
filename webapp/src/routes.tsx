@@ -1,6 +1,8 @@
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
 
 import { AdminShell } from './pages/admin-shell'
+import { ComplexesListPage } from './pages/complexes-list'
+import { EditComplexPage, NewComplexPage } from './pages/complex-editor'
 import { HomeContentPage } from './pages/home-content-page'
 import { LeadsPage } from './pages/leads-page'
 import { EditObjectPage, NewObjectPage } from './pages/object-editor'
@@ -38,6 +40,24 @@ const editObjectRoute = createRoute({
   component: EditObjectPage,
 })
 
+const complexesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/complexes',
+  component: ComplexesListPage,
+})
+
+const newComplexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/complexes/new',
+  component: NewComplexPage,
+})
+
+const editComplexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/complexes/$complexId',
+  component: EditComplexPage,
+})
+
 const homeContentRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/home-content',
@@ -61,6 +81,9 @@ const routeTree = rootRoute.addChildren([
   objectsRoute,
   newObjectRoute,
   editObjectRoute,
+  complexesRoute,
+  newComplexRoute,
+  editComplexRoute,
   homeContentRoute,
   leadsRoute,
   settingsRoute,

@@ -1,0 +1,105 @@
+---
+export const prerender = false
+
+import Base from '../layouts/Base.astro'
+import { getPublicSettings, listComplexes } from '../lib/api'
+import { complexCardHtml } from '../lib/complexCard'
+
+const params = Astro.url.searchParams
+const sort = params.get('sort') ?? 'newest'
+const city = (params.get('city') ?? '').trim()
+const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
+
+const [settings, result] = await Promise.all([
+  getPublicSettings(),
+  listComplexes({ sort, city: city || undefined, page, limit: 24 }),
+])
+
+const gridHtml = result.items.map((c) => complexCardHtml(c)).join('')
+
+const sorts = [
+  { value: 'newest', label: 'По умолчанию' },
+  { value: 'price_asc', label: 'Сначала дешевле' },
+  { value: 'price_desc', label: 'Сначала дороже' },
+  { value: 'name_asc', label: 'По названию' },
+]
+
+const countLabel = (() => {
+  const n = result.total
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return `${n} жилой комплекс`
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} жилых комплекса`
+  return `${n} жилых комплексов`
+})()
+
+function pageHref(p: number): string {
+  const next = new URLSearchParams(params)
+  next.set('page', String(p))
+  return `/novostroyki?${next.toString()}`
+}
+---
+
+<Base
+  title="Новостройки — жилые комплексы | DUNE Real Estate"
+  description="Каталог новостроек DUNE: жилые комплексы Грозного и Чеченской Республики — цены от застройщика, рассрочка, планировки."
+  active="new"
+  companyPhone={settings.companyPhone}
+  companyContact={settings.companyContact}
+>
+  <main id="main">
+    <section class="page-head">
+      <div class="container">
+        <div class="crumbs">
+          <a href="/">Главная</a><span>/</span>
+          <span class="crumbs__current">Новостройки</span>
+        </div>
+        <h1 set:html={'Жилые <b>комплексы</b>'}></h1>
+        <p class="page-head__sub">Новостройки от застройщиков — выбирайте ЖК, смотрите планировки и условия рассрочки.</p>
+      </div>
+    </section>
+
+    <section class="section--tight container">
+      <div class="zhk-bar">
+        <div class="catalog__count">{countLabel}</div>
+        <form class="zhk-sort" method="get">
+          {city && <input type="hidden" name="city" value={city} />}
+          <label class="muted" for="zhkSort">Сортировка:</label>
+          <select id="zhkSort" name="sort">
+            {sorts.map((s) => (
+              <option value={s.value} selected={sort === s.value}>{s.label}</option>
+            ))}
+          </select>
+          <button class="btn btn--ghost btn--sm" type="submit">Применить</button>
+        </form>
+      </div>
+
+      {result.total > 0 ? (
+        <div class="zhk-grid" set:html={gridHtml}></div>
+      ) : (
+        <div class="catalog__empty">
+          <b>Пока нет опубликованных ЖК</b>
+          <p class="muted">Комплексы появятся здесь, как только их добавят в каталог.</p>
+        </div>
+      )}
+
+      {result.pageCount > 1 && (
+        <div class="zhk-pager btn-row">
+          {page > 1 && <a class="btn btn--ghost btn--sm" href={pageHref(page - 1)}>Назад</a>}
+          <span class="muted">Страница {page} из {result.pageCount}</span>
+          {page < result.pageCount && <a class="btn btn--ghost btn--sm" href={pageHref(page + 1)}>Вперёд</a>}
+        </div>
+      )}
+    </section>
+
+    <section class="section--tight cta-band">
+      <div class="container">
+        <div>
+          <h2 class="h2" set:html={'Не нашли <b>подходящий ЖК?</b>'}></h2>
+          <p>Оставьте заявку — подберём новостройку под ваш бюджет и условия рассрочки.</p>
+        </div>
+        <a class="btn btn--sand" href="/#contact">Получить подборку</a>
+      </div>
+    </section>
+  </main>
+</Base>

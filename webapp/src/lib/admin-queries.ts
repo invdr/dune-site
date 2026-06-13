@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
+  AdminComplexListQuery,
   AdminPropertyListQuery,
+  CreateComplexRequest,
   CreateManagerRequest,
   CreatePropertyRequest,
+  UpdateComplexRequest,
   LeadListQuery,
   UpdateHomeContentRequest,
   UpdateLeadRequest,
@@ -17,6 +20,8 @@ import { useAuth } from './use-auth'
 export const adminKeys = {
   properties: (query: Partial<AdminPropertyListQuery>) => ['admin', 'properties', query] as const,
   property: (id: string) => ['admin', 'property', id] as const,
+  complexes: (query: Partial<AdminComplexListQuery>) => ['admin', 'complexes', query] as const,
+  complex: (id: string) => ['admin', 'complex', id] as const,
   leads: (query: Partial<LeadListQuery>) => ['admin', 'leads', query] as const,
   managers: () => ['admin', 'managers'] as const,
   settings: () => ['admin', 'settings'] as const,
@@ -70,6 +75,65 @@ export function useDeleteProperty() {
   return useMutation({
     mutationFn: (id: string) => api.deleteProperty(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'properties'] }),
+  })
+}
+
+// --- Complexes (ЖК) ---
+
+export function useComplexes(query: Partial<AdminComplexListQuery>) {
+  const { api } = useAuth()
+  return useQuery({
+    queryKey: adminKeys.complexes(query),
+    queryFn: () => api.listComplexes(query),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useComplex(id: string | undefined) {
+  const { api } = useAuth()
+  return useQuery({
+    queryKey: adminKeys.complex(id ?? ''),
+    queryFn: () => api.getComplex(id as string),
+    enabled: Boolean(id),
+  })
+}
+
+export function useCreateComplex() {
+  const { api } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateComplexRequest) => api.createComplex(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'complexes'] }),
+  })
+}
+
+export function useUpdateComplex(id: string) {
+  const { api } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: UpdateComplexRequest) => api.updateComplex(id, input),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'complexes'] })
+      queryClient.setQueryData(adminKeys.complex(id), response)
+    },
+  })
+}
+
+export function useDeleteComplex() {
+  const { api } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.deleteComplex(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'complexes'] }),
+  })
+}
+
+export function useBulkCreateComplexes() {
+  const { api } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.bulkCreateComplexes(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'complexes'] }),
   })
 }
 

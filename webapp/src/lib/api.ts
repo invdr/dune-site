@@ -1,6 +1,10 @@
 import {
   apiErrorSchema,
   authResponseSchema,
+  bulkCreateComplexesResultSchema,
+  complexListResponseSchema,
+  complexResponseSchema,
+  createComplexSchema,
   createManagerSchema,
   createPropertySchema,
   createUploadUrlSchema,
@@ -21,13 +25,20 @@ import {
   siteSettingsResponseSchema,
   updateHomeContentSchema,
   updateLeadSchema,
+  updateComplexSchema,
   updateManagerSchema,
   updatePropertySchema,
   updateSiteSettingsSchema,
+  type AdminComplexListQuery,
   type AdminPropertyListQuery,
   type AuthResponse,
+  type BulkCreateComplexesResult,
+  type ComplexListResponse,
+  type ComplexResponse,
+  type CreateComplexRequest,
   type CreateManagerRequest,
   type CreatePropertyRequest,
+  type UpdateComplexRequest,
   type CreateUploadUrlRequest,
   type HomeContentResponse,
   type LeadListQuery,
@@ -166,6 +177,47 @@ export class ApiClient {
 
   async deleteProperty(id: string): Promise<void> {
     await this.rawRequest(`/api/admin/properties/${id}`, { method: 'DELETE', auth: true })
+  }
+
+  // --- Admin: complexes (ЖК) ---
+
+  listComplexes(query: Partial<AdminComplexListQuery> = {}): Promise<ComplexListResponse> {
+    return this.request(`/api/admin/complexes${buildQuery(query)}`, complexListResponseSchema, {
+      auth: true,
+    })
+  }
+
+  getComplex(id: string): Promise<ComplexResponse> {
+    return this.request(`/api/admin/complexes/${id}`, complexResponseSchema, { auth: true })
+  }
+
+  createComplex(input: CreateComplexRequest): Promise<ComplexResponse> {
+    const payload = createComplexSchema.parse(input)
+    return this.request('/api/admin/complexes', complexResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  updateComplex(id: string, input: UpdateComplexRequest): Promise<ComplexResponse> {
+    const payload = updateComplexSchema.parse(input)
+    return this.request(`/api/admin/complexes/${id}`, complexResponseSchema, {
+      method: 'PUT',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  async deleteComplex(id: string): Promise<void> {
+    await this.rawRequest(`/api/admin/complexes/${id}`, { method: 'DELETE', auth: true })
+  }
+
+  bulkCreateComplexes(): Promise<BulkCreateComplexesResult> {
+    return this.request('/api/admin/complexes/bulk', bulkCreateComplexesResultSchema, {
+      method: 'POST',
+      auth: true,
+    })
   }
 
   // --- Admin: leads ---

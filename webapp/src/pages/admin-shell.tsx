@@ -2,6 +2,7 @@ import { Link, Outlet } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Building03Icon,
+  City03Icon,
   Home09Icon,
   Logout03Icon,
   Mail01Icon,
@@ -21,6 +22,7 @@ type NavItem = { to: string; label: string; icon: IconSvgElement }
 
 const navItems: NavItem[] = [
   { to: '/objects', label: 'Объекты', icon: Building03Icon },
+  { to: '/complexes', label: 'ЖК', icon: City03Icon },
   { to: '/home-content', label: 'Главная', icon: Home09Icon },
   { to: '/leads', label: 'Заявки', icon: Mail01Icon },
   { to: '/settings', label: 'Настройки', icon: Settings02Icon },

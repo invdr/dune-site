@@ -1,0 +1,242 @@
+---
+export const prerender = false
+
+import Base from '../../layouts/Base.astro'
+import LeadForm from '../../components/LeadForm.astro'
+import { getComplex, getPublicSettings } from '../../lib/api'
+import { cardHtml } from '../../lib/card'
+import { complexHeadline } from '../../lib/complexCard'
+import { metaByDirection } from '../../lib/directions'
+import { ICONS } from '../../lib/icons'
+import { phHtml } from '../../lib/placeholder'
+
+const { slug } = Astro.params
+const complex = slug ? await getComplex(slug) : null
+
+if (!complex) {
+  return Astro.rewrite('/404')
+}
+
+const settings = await getPublicSettings()
+const meta = metaByDirection(complex.direction)
+
+const tone =
+  complex.placeholderTone === 'ink' || complex.placeholderTone === 'sand' || complex.placeholderTone === ''
+    ? complex.placeholderTone
+    : meta.tone
+
+// Gallery: hero + up to 3 thumbs, padded with branded placeholders.
+const photos = complex.photos
+const galleryCells: string[] = []
+for (let i = 0; i < 4; i++) {
+  const overlay =
+    i === 0
+      ? `<div class="card__tags">${(complex.premium ? ['Рекомендуем', ...complex.badges] : complex.badges)
+          .slice(0, 3)
+          .map((b, j) => `<span class="tag tag--${j === 0 ? 'bordo' : 'sand'}">${b}</span>`)
+          .join('')}</div>`
+      : i === 3 && photos.length > 1
+        ? `<button class="btn btn--light btn--sm gallery__more" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>Все фото — ${photos.length}</button>`
+        : ''
+  galleryCells.push(
+    phHtml({
+      kind: meta.ph,
+      tone,
+      sun: (complex.direction === 'DUBAI' || complex.direction === 'SAUDI') && i === 0,
+      photo: photos[i] ?? null,
+      eager: i === 0,
+      overlay,
+    }),
+  )
+}
+const galleryHtml = galleryCells[0] + `<div class="gallery__thumbs">${galleryCells.slice(1).join('')}</div>`
+
+const locText = [complex.district, complex.city].filter(Boolean).join(', ')
+const headline = complexHeadline(complex)
+
+const keyfacts: { b: string; s: string }[] = []
+if (complex.areaFrom != null) keyfacts.push({ b: `от ${complex.areaFrom} м²`, s: 'площадь' })
+if (complex.unitCount > 0) keyfacts.push({ b: String(complex.unitCount), s: 'в продаже' })
+if (complex.delivery) keyfacts.push({ b: complex.delivery, s: 'сдача' })
+
+const description = complex.description ?? ''
+const descParagraphs = description.split(/\n+/).map((p) => p.trim()).filter(Boolean)
+const attributes = complex.attributes
+const unitsHtml = complex.units.map((u) => cardHtml(u)).join('')
+
+const contactPhone = settings.companyPhone
+const contactTel = contactPhone ? `tel:${contactPhone.replace(/[^+\d]/g, '')}` : null
+
+const hasPoint = complex.lat != null && complex.lng != null
+const mapSrc = hasPoint
+  ? `https://yandex.ru/map-widget/v1/?ll=${complex.lng},${complex.lat}&z=16&pt=${complex.lng},${complex.lat},pm2rdm`
+  : null
+const mapNote = complex.address ?? locText
+---
+
+<Base
+  title={`${complex.name} — DUNE Real Estate`}
+  description={`${complex.name}. ${locText}. ${headline}.`}
+  active="new"
+  companyPhone={settings.companyPhone}
+  companyContact={settings.companyContact}
+>
+  <main class="pdp container" id="pdp">
+    <div class="pdp__crumbs">
+      <a href="/">Главная</a><span>/</span>
+      <a href="/novostroyki">Новостройки</a><span>/</span>
+      <span class="crumbs__current">{complex.name}</span>
+    </div>
+
+    <div class="gallery" id="gallery" set:html={galleryHtml}></div>
+
+    {photos.length > 0 && (
+      <div class="lbox" id="lightbox" hidden data-photos={JSON.stringify(photos)}>
+        <button class="lbox__close" type="button" aria-label="Закрыть">&times;</button>
+        <button class="lbox__nav lbox__prev" type="button" aria-label="Предыдущее фото">&lsaquo;</button>
+        <img class="lbox__img" src={photos[0]} alt={complex.name} />
+        <button class="lbox__nav lbox__next" type="button" aria-label="Следующее фото">&rsaquo;</button>
+        <div class="lbox__count"><span id="lboxCur">1</span> / {photos.length}</div>
+      </div>
+    )}
+
+    <div class="pdp__layout">
+      <div class="pdp__content">
+        <div class="chips">
+          {(complex.premium ? ['Рекомендуем', ...complex.badges] : complex.badges).map((b, i) => (
+            <span class={`tag tag--${i === 0 ? 'bordo' : 'sand'}`}>{b}</span>
+          ))}
+        </div>
+        <h1 class="pdp__title">{complex.name}</h1>
+        <div class="pdp__loc"><Fragment set:html={ICONS.pin} /><span>{locText}</span></div>
+
+        {keyfacts.length > 0 && (
+          <div class="pdp__keyfacts">
+            {keyfacts.map((f) => (
+              <div class="kf"><b>{f.b}</b><span>{f.s}</span></div>
+            ))}
+          </div>
+        )}
+
+        {attributes.length > 0 && (
+          <>
+            <h2 class="block-t">Характеристики</h2>
+            <dl class="pdp__specs">
+              {attributes.map((a) => (
+                <div class="spec"><dt>{a.label}</dt><dd>{a.value}</dd></div>
+              ))}
+            </dl>
+          </>
+        )}
+
+        {descParagraphs.length > 0 && (
+          <>
+            <h2 class="block-t">О комплексе</h2>
+            {descParagraphs.map((p) => (
+              <p class="pdp__desc">{p}</p>
+            ))}
+          </>
+        )}
+
+        {complex.features.length > 0 && (
+          <>
+            <h2 class="block-t">Инфраструктура</h2>
+            <ul class="amenities ul">
+              {complex.features.map((f) => (
+                <li><Fragment set:html={ICONS.check} /><span>{f}</span></li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        <h2 class="block-t">Расположение</h2>
+        <div class="map-stub" id="pdpMap">
+          {mapSrc ? (
+            <iframe src={mapSrc} loading="lazy" title={`Карта: ${complex.city}`} allowfullscreen></iframe>
+          ) : (
+            <div class="pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.6"></circle></svg></div>
+          )}
+        </div>
+        <p class="muted pdp__map-note">
+          {mapNote}. {hasPoint ? 'Точка на карте — расположение комплекса.' : 'Точный адрес сообщит менеджер.'}
+        </p>
+      </div>
+
+      <aside class="pdp__aside">
+        <div class="price-card">
+          <div class="price-card__price">{headline}</div>
+          {complex.unitCount > 0 && (
+            <div class="price-card__permeter">{complex.unitCount} вариантов в продаже</div>
+          )}
+          {complex.developer && <div class="price-card__permeter">Застройщик: {complex.developer}</div>}
+          {complex.delivery && <div class="price-card__permeter">Срок сдачи: {complex.delivery}</div>}
+          <a class="btn btn--primary btn--block" href="#lead">Оставить заявку</a>
+          {contactTel && <a class="btn btn--ghost btn--block" href={contactTel}>Заказать звонок</a>}
+        </div>
+      </aside>
+    </div>
+
+    {complex.units.length > 0 && (
+      <section class="section--tight pdp__units">
+        <div class="sec-head">
+          <div class="sec-head__txt">
+            <span class="eyebrow eyebrow--sand">Квартиры</span>
+            <h2 class="h2" set:html={'Доступные <b>планировки</b>'}></h2>
+          </div>
+        </div>
+        <div class="zhk-grid" set:html={unitsHtml}></div>
+      </section>
+    )}
+
+    <section class="section lead-sec" id="lead">
+      <div class="container lead-grid">
+        <div class="fade-up">
+          <span class="eyebrow eyebrow--sand">Заявка по ЖК</span>
+          <h2 class="h2" set:html={'Заинтересовал комплекс? <b>Свяжемся с вами</b>'}></h2>
+          <p class="lead">Оставьте заявку — менеджер уточнит детали по {complex.name}, пришлёт планировки и условия рассрочки.</p>
+        </div>
+        <LeadForm
+          source={`complex:${complex.slug}`}
+          heading="Узнать о комплексе"
+          sub="Менеджер ответит в течение 15 минут"
+          direction={complex.direction}
+        />
+      </div>
+    </section>
+  </main>
+</Base>
+
+<script>
+  import { initGallery } from '../../scripts/gallery'
+  initGallery()
+</script>
+
+<style>
+  .pdp__specs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+    margin: 0 0 10px;
+  }
+  .pdp__specs .spec {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line, #ece7df);
+    font-size: 15px;
+  }
+  .pdp__specs dt {
+    color: var(--ink-50, #8a8175);
+  }
+  .pdp__specs dd {
+    margin: 0;
+    text-align: right;
+    font-weight: 600;
+  }
+  @media (max-width: 640px) {
+    .pdp__specs {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

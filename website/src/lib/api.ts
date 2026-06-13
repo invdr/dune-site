@@ -1,4 +1,7 @@
 import type {
+  ComplexDetailDto,
+  ComplexDto,
+  ComplexListResponse,
   CreateLeadRequest,
   HomeContentDto,
   LeadDto,
@@ -79,6 +82,39 @@ export async function listCities(): Promise<PropertyCityFacet[]> {
     return []
   }
 }
+
+// Residential complexes (ЖК) catalog + detail.
+export interface ComplexQuery {
+  city?: string
+  premium?: boolean
+  q?: string
+  sort?: string
+  page?: number
+  limit?: number
+}
+
+export async function listComplexes(query: ComplexQuery = {}): Promise<ComplexListResponse> {
+  try {
+    return await getJson<ComplexListResponse>(`/api/complexes${buildQuery(query)}`)
+  } catch (error) {
+    console.error('[api] listComplexes failed', error)
+    const limit = query.limit ?? 24
+    return { items: [], total: 0, page: query.page ?? 1, limit, pageCount: 0 }
+  }
+}
+
+export async function getComplex(slug: string): Promise<ComplexDetailDto | null> {
+  try {
+    const { complex } = await getJson<{ complex: ComplexDetailDto }>(`/api/complexes/${slug}`)
+    return complex
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) return null
+    console.error('[api] getComplex failed', error)
+    return null
+  }
+}
+
+export type { ComplexDto, ComplexDetailDto }
 
 export async function getProperty(slug: string): Promise<PropertyDto | null> {
   try {
