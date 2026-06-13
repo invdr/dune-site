@@ -212,6 +212,14 @@ function fallbackTitle(type: PropertyType, rooms: number, area: number): string 
   }
 }
 
+// A feed value that represents a real, present attribute. QuickDeal uses "no"
+// (and blanks) to mean "absent" — e.g. <waterType>no</waterType> on a plot
+// without water — so those must not count as a utility.
+function present(value: string | undefined): boolean {
+  if (value == null) return false
+  return !['no', 'none', 'false', 'absent', ''].includes(value.trim().toLowerCase())
+}
+
 // Maps one <estate-object> node to the feed-owned listing fields, or null when
 // it lacks an id, a resolvable direction, or an importable status.
 export function mapListing(object: XmlNode): MappedListing | null {
@@ -231,11 +239,12 @@ export function mapListing(object: XmlNode): MappedListing | null {
   const type = mapType(realtyType)
   const foreign = direction === 'DUBAI' || direction === 'SAUDI'
 
-  // Foreign → USD standardizedPrice; domestic → ₽ price. Missing/zero stays 0
-  // and surfaces as "Цена по запросу".
+  // Foreign → USD standardizedPrice; domestic → ₽ totalPrice (the full price;
+  // `price` can be per-m² when sale/priceType=squareMeter, e.g. commercial).
+  // Missing/zero stays 0 and surfaces as "Цена по запросу".
   const price = foreign
     ? toInt(textAt(object, 'bargainTerms', 'standardizedPrice')) ?? 0
-    : toInt(textAt(object, 'bargainTerms', 'price')) ?? 0
+    : toInt(textAt(object, 'bargainTerms', 'totalPrice')) ?? toInt(textAt(object, 'bargainTerms', 'price')) ?? 0
   const currency: Currency = foreign ? 'USD' : 'RUB'
 
   const rooms = Math.max(0, toInt(textAt(object, 'realty', 'roomsCount')) ?? 0)
@@ -254,12 +263,21 @@ export function mapListing(object: XmlNode): MappedListing | null {
 
   const utilities: Utility[] = []
   if (type === 'LAND') {
-    if (textAt(object, 'realty', 'waterType')) utilities.push('WATER')
-    if (textAt(object, 'realty', 'sewerageType')) utilities.push('SEWERAGE')
-    if (textAt(object, 'realty', 'gasType') || textAt(object, 'building', 'hasGas') === 'true') utilities.push('GAS')
-    if (textAt(object, 'realty', 'electricityType') || textAt(object, 'realty', 'powerType')) {
-      utilities.push('ELECTRICITY')
-    }
+    const hasElectricity =
+      textAt(object, 'realty', 'additional', 'hasElectricity') === 'true' ||
+      present(textAt(object, 'realty', 'electricityType')) ||
+      present(textAt(object, 'realty', 'powerType'))
+    const hasGas =
+      present(textAt(object, 'realty', 'gasType')) ||
+      textAt(object, 'building', 'hasGas') === 'true' ||
+      textAt(object, 'realty', 'additional', 'hasGas') === 'true'
+    const hasWater = present(textAt(object, 'realty', 'waterType'))
+    const hasSewerage =
+      present(textAt(object, 'realty', 'drainageType')) || present(textAt(object, 'realty', 'sewerageType'))
+    if (hasElectricity) utilities.push('ELECTRICITY')
+    if (hasGas) utilities.push('GAS')
+    if (hasWater) utilities.push('WATER')
+    if (hasSewerage) utilities.push('SEWERAGE')
   }
 
   return {
@@ -274,13 +292,21 @@ export function mapListing(object: XmlNode): MappedListing | null {
     area,
     floor: toInt(textAt(object, 'realty', 'floorNumber')),
     totalFloors: toInt(textAt(object, 'building', 'floorsCount')),
-    complex: textAt(object, 'developmentHouse', 'name') ?? textAt(object, 'developmentBuilding', 'name') ?? null,
+    complex:
+      textAt(object, 'developmentBuilding', 'name') ??
+      textAt(object, 'developmentHouse', 'name') ??
+      textAt(object, 'building', 'name') ??
+      null,
     city:
       textAt(object, 'address', 'city') ??
       textAt(object, 'address', 'settlement') ??
       textAt(object, 'address', 'region') ??
       '—',
-    district: textAt(object, 'address', 'district') ?? textAt(object, 'address', 'area') ?? null,
+    district:
+      textAt(object, 'address', 'district') ??
+      textAt(object, 'districts', 'district', 'name') ??
+      textAt(object, 'address', 'area') ??
+      null,
     price,
     currency,
     installment,

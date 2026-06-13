@@ -117,3 +117,55 @@ describe('mapListing against the real QuickDeal XML shape', () => {
     expect(house.managerName).toBe('Пётр Домов')
   })
 })
+
+describe('mapListing edge cases from the rich feed', () => {
+  const node = (xml: string) => parseXml(xml).children[0]!
+
+  test('commercial priced per m² uses totalPrice, not the per-metre price', () => {
+    const o = node(
+      `<estate-object><feedId>QD_CS_1</feedId><realtyType>office</realtyType><status>active</status>` +
+        `<address><countryIsoCode>RU</countryIsoCode><city>Грозный</city></address>` +
+        `<bargainTerms><price>120000</price><totalPrice>48000000</totalPrice><sale><priceType>squareMeter</priceType></sale></bargainTerms>` +
+        `<feedSettings><isSendToCompanySite>true</isSendToCompanySite></feedSettings>` +
+        `<realty><totalArea><value>400</value></totalArea></realty></estate-object>`,
+    )
+    const m = mapListing(o)!
+    expect(m.type).toBe('COMMERCIAL')
+    expect(m.commercialKind).toBe('OFFICE')
+    expect(m.price).toBe(48000000)
+  })
+
+  test('land utilities: waterType "no" is excluded; gas/electricity/sewerage included', () => {
+    const o = node(
+      `<estate-object><feedId>QD_RS_2</feedId><realtyType>land</realtyType><status>active</status>` +
+        `<address><countryIsoCode>RU</countryIsoCode><city>Грозный</city></address>` +
+        `<bargainTerms><price>4000000</price><totalPrice>4000000</totalPrice></bargainTerms>` +
+        `<feedSettings><isSendToCompanySite>true</isSendToCompanySite></feedSettings>` +
+        `<realty><land><area><value>6</value><unit>sotka</unit></area>` +
+        `<permittedLandUseType>individualHousingConstruction</permittedLandUseType></land>` +
+        `<gasType>border</gasType><waterType>no</waterType><drainageType>septicTank</drainageType>` +
+        `<additional><hasElectricity>true</hasElectricity></additional></realty></estate-object>`,
+    )
+    const m = mapListing(o)!
+    expect(m.area).toBe(600)
+    expect(m.landUse).toBe('IZHS')
+    expect(m.utilities).not.toContain('WATER')
+    expect(m.utilities).toEqual(expect.arrayContaining(['ELECTRICITY', 'GAS', 'SEWERAGE']))
+  })
+
+  test('district falls back to the <districts> block; flatNew → NEW; ЖК from developmentBuilding', () => {
+    const o = node(
+      `<estate-object><feedId>QD_RS_3</feedId><realtyType>flatNew</realtyType><status>active</status>` +
+        `<address><countryIsoCode>RU</countryIsoCode><city>Грозный</city></address>` +
+        `<districts><district><name>Заводской</name></district></districts>` +
+        `<bargainTerms><price>4000000</price><totalPrice>4000000</totalPrice></bargainTerms>` +
+        `<feedSettings><isSendToCompanySite>true</isSendToCompanySite></feedSettings>` +
+        `<developmentBuilding><name>ЖК «Европейский»</name></developmentBuilding>` +
+        `<realty><roomsCount>1</roomsCount><totalArea><value>56</value></totalArea></realty></estate-object>`,
+    )
+    const m = mapListing(o)!
+    expect(m.direction).toBe('NEW')
+    expect(m.district).toBe('Заводской')
+    expect(m.complex).toBe('ЖК «Европейский»')
+  })
+})
