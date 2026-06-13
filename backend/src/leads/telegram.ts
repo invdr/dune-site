@@ -36,7 +36,7 @@ export function formatLeadMessage(lead: Lead, objectLine: string | null): string
   ]
   if (lead.email) rows.push(`<b>E-mail:</b> ${escapeHtml(lead.email)}`)
   if (lead.direction) rows.push(`<b>Направление:</b> ${lead.direction}`)
-  if (objectLine) rows.push(`<b>Объект:</b> ${objectLine}`)
+  if (objectLine) rows.push(`<b>Объект:</b> ${escapeHtml(objectLine)}`)
   if (lead.source) rows.push(`<b>Источник:</b> ${escapeHtml(lead.source)}`)
   if (lead.message) rows.push(`<b>Комментарий:</b> ${escapeHtml(lead.message)}`)
   rows.push(`<i>${lead.createdAt.toLocaleString('ru-RU')}</i>`)

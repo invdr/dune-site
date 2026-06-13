@@ -96,13 +96,31 @@ export class LeadService {
   // Retries delivery for recent leads whose channels never got the flag — covers
   // the gap where in-request delivery lost the work (process crash, or the
   // notifier was down through all retries). Driven by the `leads:redeliver` cron.
+  // `retried` counts leads selected for a retry pass, not successful deliveries:
+  // a still-failing channel keeps its flag null and gets picked up again next tick.
   async redeliverPending(windowHours = 48): Promise<{ retried: number }> {
     const since = new Date(Date.now() - windowHours * 60 * 60 * 1000)
+
+    // Only retry on channels that are actually configured. A disabled channel's
+    // flag stays null forever, so keying on it would re-scan the whole window
+    // every tick. We mirror deliver()'s enablement checks so a lead is picked up
+    // iff a *configured* channel still hasn't been delivered — this also covers
+    // the dual-channel case where Telegram succeeded but Bitrix failed.
+    const settings = await this.db.siteSettings.findUnique({ where: { id: 'singleton' } })
+    const orClauses: Prisma.LeadWhereInput[] = []
+    if (settings?.telegramBotToken && settings?.telegramChatId) {
+      orClauses.push({ telegramSentAt: null })
+    }
+    if (settings?.bitrixEnabled && settings?.bitrixWebhookUrl) {
+      orClauses.push({ bitrixSentAt: null })
+    }
+    if (orClauses.length === 0) return { retried: 0 }
+
     const pending = await this.db.lead.findMany({
       where: {
         createdAt: { gt: since },
         status: { not: 'SPAM' },
-        telegramSentAt: null,
+        OR: orClauses,
       },
       select: { id: true },
     })

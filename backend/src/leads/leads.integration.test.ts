@@ -161,4 +161,291 @@ maybeDescribe('lead API integration', () => {
     await service.deliver(lead.id)
     expect(sent).toHaveLength(1)
   })
+
+  test('redeliverPending retries a dual-channel lead whose Bitrix push is still missing', async () => {
+    // The core regression case: BOTH channels configured, Telegram already
+    // succeeded (telegramSentAt set), Bitrix failed (bitrixSentAt null). The old
+    // query keyed on telegramSentAt:null only and would strand this lead — the
+    // manager's CRM would never receive it. Telegram must not be re-sent.
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: {
+        id: 'singleton',
+        telegramBotToken: 'T',
+        telegramChatId: 'C',
+        bitrixEnabled: true,
+        bitrixWebhookUrl: 'https://b24.example/hook',
+      },
+      update: {
+        telegramBotToken: 'T',
+        telegramChatId: 'C',
+        bitrixEnabled: true,
+        bitrixWebhookUrl: 'https://b24.example/hook',
+      },
+    })
+    const bitrixCalls: unknown[] = []
+    const telegramCalls: unknown[] = []
+    const service = new LeadService(prisma, {
+      telegramSender: async (_url, body) => (telegramCalls.push(body), true),
+      bitrixSender: async (_url, body) => (bitrixCalls.push(body), true),
+    })
+    const lead = await prisma.lead.create({
+      data: { name: 'Лид', phone: '+7 902 000-00-00', consentAt: new Date(), telegramSentAt: new Date() },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(1)
+    expect(bitrixCalls).toHaveLength(1)
+    expect(telegramCalls).toHaveLength(0)
+    const stored = await prisma.lead.findUnique({ where: { id: lead.id } })
+    expect(stored?.bitrixSentAt).not.toBeNull()
+  })
+
+  test('redeliverPending skips a lead already delivered on both configured channels', async () => {
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: {
+        id: 'singleton',
+        telegramBotToken: 'T',
+        telegramChatId: 'C',
+        bitrixEnabled: true,
+        bitrixWebhookUrl: 'https://b24.example/hook',
+      },
+      update: {
+        telegramBotToken: 'T',
+        telegramChatId: 'C',
+        bitrixEnabled: true,
+        bitrixWebhookUrl: 'https://b24.example/hook',
+      },
+    })
+    const calls: unknown[] = []
+    const service = new LeadService(prisma, {
+      telegramSender: async (_url, body) => (calls.push(body), true),
+      bitrixSender: async (_url, body) => (calls.push(body), true),
+    })
+    await prisma.lead.create({
+      data: {
+        name: 'Лид',
+        phone: '+7 904 000-00-00',
+        consentAt: new Date(),
+        telegramSentAt: new Date(),
+        bitrixSentAt: new Date(),
+      },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(0)
+    expect(calls).toHaveLength(0)
+  })
+
+  test('redeliverPending retries a pending lead when only Telegram is configured', async () => {
+    // Most common production setup. Verifies the positive Telegram-only path:
+    // a not-yet-delivered lead is picked up and its flag stamped.
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', telegramBotToken: 'T', telegramChatId: 'C' },
+      update: { telegramBotToken: 'T', telegramChatId: 'C', bitrixEnabled: false, bitrixWebhookUrl: null },
+    })
+    const telegramCalls: unknown[] = []
+    const service = new LeadService(prisma, {
+      telegramSender: async (_url, body) => (telegramCalls.push(body), true),
+    })
+    const lead = await prisma.lead.create({
+      data: { name: 'Лид', phone: '+7 906 000-00-00', consentAt: new Date() },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(1)
+    expect(telegramCalls).toHaveLength(1)
+    const stored = await prisma.lead.findUnique({ where: { id: lead.id } })
+    expect(stored?.telegramSentAt).not.toBeNull()
+  })
+
+  test('redeliverPending retries a pending lead when only Bitrix is configured', async () => {
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', bitrixEnabled: true, bitrixWebhookUrl: 'https://b24.example/hook' },
+      update: { bitrixEnabled: true, bitrixWebhookUrl: 'https://b24.example/hook', telegramBotToken: null, telegramChatId: null },
+    })
+    const bitrixCalls: unknown[] = []
+    const service = new LeadService(prisma, {
+      bitrixSender: async (_url, body) => (bitrixCalls.push(body), true),
+    })
+    const lead = await prisma.lead.create({
+      data: { name: 'Лид', phone: '+7 907 000-00-00', consentAt: new Date() },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(1)
+    expect(bitrixCalls).toHaveLength(1)
+    const stored = await prisma.lead.findUnique({ where: { id: lead.id } })
+    expect(stored?.bitrixSentAt).not.toBeNull()
+  })
+
+  test('redeliverPending retries a dual-channel lead whose Telegram push is still missing', async () => {
+    // Mirror of the Bitrix-pending case: Bitrix already delivered, Telegram
+    // failed. Telegram must catch up while Bitrix is not re-sent.
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: {
+        id: 'singleton',
+        telegramBotToken: 'T',
+        telegramChatId: 'C',
+        bitrixEnabled: true,
+        bitrixWebhookUrl: 'https://b24.example/hook',
+      },
+      update: {
+        telegramBotToken: 'T',
+        telegramChatId: 'C',
+        bitrixEnabled: true,
+        bitrixWebhookUrl: 'https://b24.example/hook',
+      },
+    })
+    const telegramCalls: unknown[] = []
+    const bitrixCalls: unknown[] = []
+    const service = new LeadService(prisma, {
+      telegramSender: async (_url, body) => (telegramCalls.push(body), true),
+      bitrixSender: async (_url, body) => (bitrixCalls.push(body), true),
+    })
+    const lead = await prisma.lead.create({
+      data: { name: 'Лид', phone: '+7 908 000-00-00', consentAt: new Date(), bitrixSentAt: new Date() },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(1)
+    expect(telegramCalls).toHaveLength(1)
+    expect(bitrixCalls).toHaveLength(0)
+    const stored = await prisma.lead.findUnique({ where: { id: lead.id } })
+    expect(stored?.telegramSentAt).not.toBeNull()
+  })
+
+  test('redeliverPending delivers both channels for a lead that never got either', async () => {
+    // Dominant retry scenario: deliver() never ran or crashed at create time, so
+    // both flags are null. One scan must deliver to both configured channels.
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: {
+        id: 'singleton',
+        telegramBotToken: 'T',
+        telegramChatId: 'C',
+        bitrixEnabled: true,
+        bitrixWebhookUrl: 'https://b24.example/hook',
+      },
+      update: {
+        telegramBotToken: 'T',
+        telegramChatId: 'C',
+        bitrixEnabled: true,
+        bitrixWebhookUrl: 'https://b24.example/hook',
+      },
+    })
+    const telegramCalls: unknown[] = []
+    const bitrixCalls: unknown[] = []
+    const service = new LeadService(prisma, {
+      telegramSender: async (_url, body) => (telegramCalls.push(body), true),
+      bitrixSender: async (_url, body) => (bitrixCalls.push(body), true),
+    })
+    const lead = await prisma.lead.create({
+      data: { name: 'Лид', phone: '+7 912 000-00-00', consentAt: new Date() },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(1)
+    expect(telegramCalls).toHaveLength(1)
+    expect(bitrixCalls).toHaveLength(1)
+    const stored = await prisma.lead.findUnique({ where: { id: lead.id } })
+    expect(stored?.telegramSentAt).not.toBeNull()
+    expect(stored?.bitrixSentAt).not.toBeNull()
+  })
+
+  test('redeliverPending counts attempts but leaves the flag null when the sender fails', async () => {
+    // `retried` reports leads selected for a retry, not successful deliveries.
+    // A sender that keeps failing leaves the flag null so the next tick retries.
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', bitrixEnabled: true, bitrixWebhookUrl: 'https://b24.example/hook' },
+      update: { bitrixEnabled: true, bitrixWebhookUrl: 'https://b24.example/hook' },
+    })
+    const service = new LeadService(prisma, {
+      bitrixSender: async () => false,
+    })
+    const lead = await prisma.lead.create({
+      data: { name: 'Лид', phone: '+7 909 000-00-00', consentAt: new Date() },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(1)
+    const stored = await prisma.lead.findUnique({ where: { id: lead.id } })
+    expect(stored?.bitrixSentAt).toBeNull()
+  })
+
+  test('redeliverPending ignores leads outside the retry window and SPAM leads', async () => {
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', telegramBotToken: 'T', telegramChatId: 'C' },
+      update: { telegramBotToken: 'T', telegramChatId: 'C' },
+    })
+    const telegramCalls: unknown[] = []
+    const service = new LeadService(prisma, {
+      telegramSender: async (_url, body) => (telegramCalls.push(body), true),
+    })
+    // Older than the 48h window.
+    await prisma.lead.create({
+      data: {
+        name: 'Старый',
+        phone: '+7 910 000-00-00',
+        consentAt: new Date(),
+        createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000),
+      },
+    })
+    // Recent but marked SPAM.
+    await prisma.lead.create({
+      data: { name: 'Спам', phone: '+7 911 000-00-00', consentAt: new Date(), status: 'SPAM' },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(0)
+    expect(telegramCalls).toHaveLength(0)
+  })
+
+  test('redeliverPending is a no-op when no channel is configured', async () => {
+    // No siteSettings row at all (first boot / reset): nothing is deliverable,
+    // so the scan must short-circuit instead of re-processing the whole window.
+    const calls: unknown[] = []
+    const service = new LeadService(prisma, {
+      telegramSender: async (_url, body) => (calls.push(body), true),
+      bitrixSender: async (_url, body) => (calls.push(body), true),
+    })
+    await prisma.lead.create({
+      data: { name: 'Лид', phone: '+7 905 000-00-00', consentAt: new Date() },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(0)
+    expect(calls).toHaveLength(0)
+  })
+
+  test('redeliverPending ignores already-delivered leads when only Telegram is configured', async () => {
+    // Common deployment: Telegram set up, Bitrix off. A lead delivered to
+    // Telegram must NOT be re-scanned every tick just because bitrixSentAt is
+    // null on a disabled channel.
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', telegramBotToken: 'T', telegramChatId: 'C' },
+      update: { telegramBotToken: 'T', telegramChatId: 'C', bitrixEnabled: false, bitrixWebhookUrl: null },
+    })
+    const bitrixCalls: unknown[] = []
+    const telegramCalls: unknown[] = []
+    const service = new LeadService(prisma, {
+      telegramSender: async (_url, body) => (telegramCalls.push(body), true),
+      bitrixSender: async (_url, body) => (bitrixCalls.push(body), true),
+    })
+    await prisma.lead.create({
+      data: { name: 'Лид', phone: '+7 903 000-00-00', consentAt: new Date(), telegramSentAt: new Date() },
+    })
+
+    const { retried } = await service.redeliverPending()
+    expect(retried).toBe(0)
+    expect(telegramCalls).toHaveLength(0)
+    expect(bitrixCalls).toHaveLength(0)
+  })
 })

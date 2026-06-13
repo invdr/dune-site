@@ -27,6 +27,12 @@ describe('formatLeadMessage', () => {
     expect(text).toContain('Marina view (/dubai-1)')
     expect(text).toContain('Анна &lt;test&gt;')
   })
+
+  test('escapes the object line — feed-sourced title cannot inject HTML', () => {
+    const text = formatLeadMessage(lead, '<a href="https://evil.test">Апартаменты</a> (/x)')
+    expect(text).not.toContain('<a href')
+    expect(text).toContain('&lt;a href="https://evil.test"&gt;Апартаменты&lt;/a&gt;')
+  })
 })
 
 describe('TelegramNotifier', () => {
