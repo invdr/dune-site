@@ -5,7 +5,7 @@ import Base from '../../layouts/Base.astro'
 import LeadForm from '../../components/LeadForm.astro'
 import { getComplex, getPublicSettings } from '../../lib/api'
 import { cardHtml } from '../../lib/card'
-import { complexHeadline } from '../../lib/complexCard'
+import { complexHeadline, resolvePlaceholderTone } from '../../lib/complexCard'
 import { metaByDirection } from '../../lib/directions'
 import { ICONS } from '../../lib/icons'
 import { phHtml } from '../../lib/placeholder'
@@ -20,10 +20,7 @@ if (!complex) {
 const settings = await getPublicSettings()
 const meta = metaByDirection(complex.direction)
 
-const tone =
-  complex.placeholderTone === 'ink' || complex.placeholderTone === 'sand' || complex.placeholderTone === ''
-    ? complex.placeholderTone
-    : meta.tone
+const tone = resolvePlaceholderTone(complex)
 
 // Gallery: hero + up to 3 thumbs, padded with branded placeholders.
 const photos = complex.photos

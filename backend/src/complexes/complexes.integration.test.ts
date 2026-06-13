@@ -121,6 +121,41 @@ maybeDescribe('complex API integration', () => {
     expect(complex.units[0].slug).toBe('an-nur-1')
   })
 
+  test('catalog card aggregate matches units case/whitespace-insensitively', async () => {
+    const token = await authToken()
+    await createComplex(token, { slug: 'zhk-an-nur', name: 'ЖК Ан Нур' })
+    // Feed unit carries a different case and a trailing space — the bulk
+    // importer copies free-text QuickDeal names, so this is the common case.
+    await prisma.property.create({
+      data: {
+        slug: 'an-nur-1', direction: 'NEW', type: 'APARTMENT', status: 'PUBLISHED',
+        title: 'Студия', area: 40, price: 3_600_000, city: 'Грозный', complex: 'ЖК ан нур ',
+      },
+    })
+
+    const list = await app.request('/api/complexes')
+    const body = await list.json()
+    const card = body.items.find((c: { slug: string }) => c.slug === 'zhk-an-nur')
+    // The card aggregate must agree with the detail page, not show 0 / "по запросу".
+    expect(card.unitCount).toBe(1)
+    expect(card.pricePerMeterFrom).toBe(90_000)
+
+    const detail = await (await app.request('/api/complexes/zhk-an-nur')).json()
+    expect(detail.complex.unitCount).toBe(1)
+    expect(detail.complex.pricePerMeterFrom).toBe(90_000)
+  })
+
+  test('manual complex without units shows a per-m² headline but no bogus total', async () => {
+    const token = await authToken()
+    await createComplex(token, { slug: 'zhk-manual', name: 'ЖК Ручной', priceFrom: 120_000, areaFrom: 38 })
+
+    const detail = await (await app.request('/api/complexes/zhk-manual')).json()
+    expect(detail.complex.unitCount).toBe(0)
+    expect(detail.complex.pricePerMeterFrom).toBe(120_000) // manual ₽/м² headline
+    expect(detail.complex.areaFrom).toBe(38)
+    expect(detail.complex.priceFrom).toBeNull() // no units → no derived total
+  })
+
   test('bulk creates draft stubs from new-build complex names, skipping existing', async () => {
     const token = await authToken()
     await prisma.property.createMany({

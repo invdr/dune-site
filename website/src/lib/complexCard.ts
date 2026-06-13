@@ -14,6 +14,15 @@ function badgeTags(c: ComplexDto): string {
     .join('')
 }
 
+// Branded placeholder tone: honour an explicit site-layer tone, else fall back
+// to the direction's default. Shared by the card and the ЖК detail gallery.
+export function resolvePlaceholderTone(c: Pick<ComplexDto, 'placeholderTone' | 'direction'>): '' | 'ink' | 'sand' {
+  if (c.placeholderTone === 'ink' || c.placeholderTone === 'sand' || c.placeholderTone === '') {
+    return c.placeholderTone
+  }
+  return metaByDirection(c.direction).tone
+}
+
 // Catalog headline: "от X ₽/м²" when known, else the entry total, else a prompt.
 export function complexHeadline(c: ComplexDto): string {
   if (c.pricePerMeterFrom != null) return `от ${formatRub(c.pricePerMeterFrom)}/м²`
@@ -24,14 +33,10 @@ export function complexHeadline(c: ComplexDto): string {
 // Single source of truth for a ЖК card's markup (catalog grid + related rows).
 export function complexCardHtml(c: ComplexDto): string {
   const meta = metaByDirection(c.direction)
-  const tone =
-    c.placeholderTone === 'ink' || c.placeholderTone === 'sand' || c.placeholderTone === ''
-      ? c.placeholderTone
-      : meta.tone
 
   const media = phHtml({
     kind: meta.ph,
-    tone,
+    tone: resolvePlaceholderTone(c),
     sun: c.direction === 'DUBAI' || c.direction === 'SAUDI',
     photo: c.photos[0] ?? null,
     extraClass: 'card__media',

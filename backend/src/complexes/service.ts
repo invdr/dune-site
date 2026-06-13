@@ -40,7 +40,7 @@ export class ComplexService {
     const unitsByName = await this.unitFactsByName(items.map((c) => c.name))
 
     return {
-      items: items.map((c) => toComplexDto(c, this.aggregate(c, unitsByName.get(c.name) ?? []))),
+      items: items.map((c) => toComplexDto(c, this.aggregate(c, unitsByName.get(normalizeComplexKey(c.name)) ?? []))),
       total,
       page: query.page,
       limit: query.limit,
@@ -54,11 +54,15 @@ export class ComplexService {
       throw new AppError(404, 'NOT_FOUND', 'Complex not found')
     }
 
-    // Full published units for this complex, cheapest first.
-    const unitRows = await this.db.property.findMany({
-      where: { status: 'PUBLISHED', complex: { equals: complex.name, mode: 'insensitive' } },
+    // Full published units for this complex, cheapest first. Matching is done on
+    // a normalized key (see unitFactsByName) so it is identical to the catalog
+    // card and tolerant of the free-text casing/whitespace in feed names.
+    const key = normalizeComplexKey(complex.name)
+    const allRows = await this.db.property.findMany({
+      where: { status: 'PUBLISHED', complex: { not: null } },
       orderBy: [{ price: 'asc' }, { id: 'desc' }],
     })
+    const unitRows = allRows.filter((p) => p.complex && normalizeComplexKey(p.complex) === key)
 
     const context = await this.currency.getPricingContext()
     const units = unitRows.map((p) =>
@@ -76,7 +80,7 @@ export class ComplexService {
     const complex = await this.db.complex.findUnique({ where: { id } })
     if (!complex) throw new AppError(404, 'NOT_FOUND', 'Complex not found')
     const units = await this.unitFactsByName([complex.name])
-    return toComplexDto(complex, this.aggregate(complex, units.get(complex.name) ?? []))
+    return toComplexDto(complex, this.aggregate(complex, units.get(normalizeComplexKey(complex.name)) ?? []))
   }
 
   async create(payload: CreateComplexPayload) {
@@ -98,7 +102,7 @@ export class ComplexService {
         throw this.translateWriteError(error)
       })
     const units = await this.unitFactsByName([complex.name])
-    return toComplexDto(complex, this.aggregate(complex, units.get(complex.name) ?? []))
+    return toComplexDto(complex, this.aggregate(complex, units.get(normalizeComplexKey(complex.name)) ?? []))
   }
 
   async delete(id: string) {
@@ -155,20 +159,27 @@ export class ComplexService {
 
   // ---- helpers -------------------------------------------------------------
 
+  // Buckets published units by a normalized complex name (trimmed,
+  // whitespace-collapsed, lower-cased) so the join is case- and
+  // whitespace-insensitive — Postgres can't normalize-match a free-text column,
+  // so we filter in memory. Fine at the current catalog scale; a normalized
+  // stored column + index would be the move if the feed grows large.
   private async unitFactsByName(names: string[]): Promise<Map<string, UnitFacts[]>> {
+    const wanted = new Set(names.map(normalizeComplexKey).filter((k) => k))
     const map = new Map<string, UnitFacts[]>()
-    const distinct = names.filter((n) => n)
-    if (distinct.length === 0) return map
+    if (wanted.size === 0) return map
 
     const rows = await this.db.property.findMany({
-      where: { status: 'PUBLISHED', complex: { in: distinct } },
+      where: { status: 'PUBLISHED', complex: { not: null } },
       select: { complex: true, price: true, area: true },
     })
     for (const r of rows) {
       if (!r.complex) continue
-      const list = map.get(r.complex) ?? []
+      const key = normalizeComplexKey(r.complex)
+      if (!wanted.has(key)) continue
+      const list = map.get(key) ?? []
       list.push({ price: r.price, area: r.area })
-      map.set(r.complex, list)
+      map.set(key, list)
     }
     return map
   }
@@ -246,11 +257,20 @@ export class ComplexService {
   }
 }
 
-// Stored manual fallbacks when no units are linked. `priceFrom` is treated as a
-// price-per-m² hint so a manually-authored ЖК can still show the headline.
+// Normalized join key for matching a complex name to a unit's free-text
+// `complex` field: trimmed, whitespace-collapsed, lower-cased.
+function normalizeComplexKey(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+// Fallbacks for a complex with no linked units. The stored `priceFrom` column
+// holds the manual price-per-m² headline (the admin field is labelled "₽/м²"),
+// so it maps to `pricePerMeterFrom`. The DTO's `priceFrom` (a *total*) stays
+// null here — there are no units to derive a total from — so the field never
+// changes meaning between the manual and computed cases.
 function emptyAggregate(complex: Complex): ComplexAggregate {
   return {
-    priceFrom: complex.priceFrom,
+    priceFrom: null,
     areaFrom: complex.areaFrom,
     pricePerMeterFrom: complex.priceFrom,
     unitCount: 0,
