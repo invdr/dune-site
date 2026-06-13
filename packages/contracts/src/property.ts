@@ -3,6 +3,9 @@ import { z } from 'zod'
 import { priceSetSchema } from './pricing'
 
 export const propertyDirectionSchema = z.enum(['NEW', 'RESALE', 'DUBAI', 'SAUDI'])
+// Catalog hierarchy (Country → City → Category → Type).
+export const countrySchema = z.enum(['RU', 'AE', 'SA'])
+export const propertyCategorySchema = z.enum(['RESIDENTIAL', 'COMMERCIAL'])
 export const propertyTypeSchema = z.enum(['APARTMENT', 'HOUSE', 'TOWNHOUSE', 'COMMERCIAL', 'LAND'])
 export const propertyStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED', 'SOLD'])
 export const currencySchema = z.enum(['RUB', 'USD'])
@@ -15,7 +18,13 @@ export const commercialKindSchema = z.enum(['OFFICE', 'RETAIL', 'WAREHOUSE', 'FO
 // LAND-only: available utilities (closed set guarded here, stored as String[]).
 export const utilitySchema = z.enum(['ELECTRICITY', 'GAS', 'WATER', 'SEWERAGE'])
 
+// One characteristic row on the property page, e.g. { label: 'Этаж', value: '3 / 30' }.
+export const propertyAttributeSchema = z.object({ label: z.string(), value: z.string() })
+
 export type PropertyDirection = z.infer<typeof propertyDirectionSchema>
+export type Country = z.infer<typeof countrySchema>
+export type PropertyCategory = z.infer<typeof propertyCategorySchema>
+export type PropertyAttribute = z.infer<typeof propertyAttributeSchema>
 export type PropertyType = z.infer<typeof propertyTypeSchema>
 export type PropertyStatus = z.infer<typeof propertyStatusSchema>
 export type Currency = z.infer<typeof currencySchema>
@@ -36,6 +45,8 @@ export const propertySchema = z.object({
   id: z.string(),
   slug: propertySlugSchema,
   direction: propertyDirectionSchema,
+  country: countrySchema,
+  category: propertyCategorySchema,
   type: propertyTypeSchema,
   status: propertyStatusSchema,
   title: z.string(),
@@ -56,6 +67,8 @@ export const propertySchema = z.object({
   placeholderTone: z.string().nullable(),
   badges: z.array(z.string()),
   features: z.array(z.string()),
+  description: z.string().nullable(),
+  attributes: z.array(propertyAttributeSchema),
   source: propertySourceSchema,
   lat: z.number().nullable(),
   lng: z.number().nullable(),
@@ -109,9 +122,13 @@ const optionalManagerPhotoSchema = z
 // `source` (provenance) is intentionally NOT here: it is set once at create
 // time and is immutable afterwards, so an admin edit can never flip a
 // QuickDeal-mirrored listing to SITE (which would detach it from sync).
+const attributesSchema = z.array(propertyAttributeSchema).max(60)
+
 const writableShape = {
   slug: propertySlugSchema,
   direction: propertyDirectionSchema,
+  country: countrySchema,
+  category: propertyCategorySchema,
   type: propertyTypeSchema,
   status: propertyStatusSchema,
   title: titleSchema,
@@ -132,6 +149,8 @@ const writableShape = {
   placeholderTone: optionalText(20),
   badges: labelListSchema,
   features: labelListSchema,
+  description: optionalText(8000),
+  attributes: attributesSchema,
   lat: optionalLatSchema,
   lng: optionalLngSchema,
   landUse: optionalLandUseSchema,
@@ -145,6 +164,9 @@ const writableShape = {
 export const createPropertySchema = z.object({
   ...writableShape,
   status: propertyStatusSchema.default('DRAFT'),
+  country: countrySchema.default('RU'),
+  category: propertyCategorySchema.default('RESIDENTIAL'),
+  attributes: attributesSchema.default([]),
   rooms: roomsSchema.default(0),
   currency: currencySchema.default('RUB'),
   premium: z.boolean().default(false),
@@ -188,6 +210,8 @@ export type PropertySort = z.infer<typeof propertySortSchema>
 
 const baseListQueryShape = {
   direction: propertyDirectionSchema.optional(),
+  country: countrySchema.optional(),
+  category: propertyCategorySchema.optional(),
   type: propertyTypeSchema.optional(),
   landUse: landUseSchema.optional(),
   commercialKind: commercialKindSchema.optional(),

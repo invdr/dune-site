@@ -1,12 +1,16 @@
 import type {
   CommercialKind,
+  Country,
   Currency,
   LandUse,
+  PropertyAttribute,
+  PropertyCategory,
   PropertyDirection,
   PropertyType,
   Utility,
 } from '@dune/contracts'
 
+import { buildAttributes } from './attributes'
 import { child, children, textAt, type XmlNode } from './xml'
 
 // Feed-owned fields written on every sync. The site layer (slug, badges,
@@ -16,9 +20,13 @@ export type MappedListing = {
   source: 'QUICKDEAL'
   externalSource: string
   direction: PropertyDirection
+  country: Country
+  category: PropertyCategory
   type: PropertyType
   status: 'PUBLISHED' | 'SOLD'
   title: string
+  description: string | null
+  attributes: PropertyAttribute[]
   rooms: number
   area: number
   floor: number | null
@@ -131,6 +139,61 @@ export function mapDirection(
 }
 
 const COMMERCIAL_REALTY = /office|retail|warehouse|commerc|business|production|garage|freeappointment|building/i
+
+export function mapCountry(countryIso: string | undefined): Country {
+  const iso = (countryIso ?? '').toUpperCase()
+  if (iso === 'AE') return 'AE'
+  if (iso === 'SA') return 'SA'
+  return 'RU'
+}
+
+export function mapCategory(object: XmlNode, type: PropertyType): PropertyCategory {
+  if (type === 'COMMERCIAL') return 'COMMERCIAL'
+  return textAt(object, 'category')?.toLowerCase() === 'commercial' ? 'COMMERCIAL' : 'RESIDENTIAL'
+}
+
+// Foreign listings carry granular cities ("Дубай Марина"); roll them up to the
+// main city/emirate so the catalog city facet stays short and clean.
+const FOREIGN_CITY: [string, string][] = [
+  ['dubai', 'Дубай'],
+  ['дубай', 'Дубай'],
+  ['abu', 'Абу-Даби'],
+  ['абу', 'Абу-Даби'],
+  ['sharjah', 'Шарджа'],
+  ['шардж', 'Шарджа'],
+  ['ajman', 'Аджман'],
+  ['ras al', 'Рас-эль-Хайма'],
+  ['riyadh', 'Эр-Рияд'],
+  ['рияд', 'Эр-Рияд'],
+  ['jeddah', 'Джидда'],
+  ['джидда', 'Джидда'],
+  ['mecca', 'Мекка'],
+  ['медин', 'Медина'],
+]
+
+export function mapCity(object: XmlNode, country: Country): string {
+  const city = textAt(object, 'address', 'city')
+  const region = textAt(object, 'address', 'region')
+  const settlement = textAt(object, 'address', 'settlement')
+  if (country === 'RU') return city ?? settlement ?? region ?? '—'
+  const haystack = `${region ?? ''} ${city ?? ''}`.toLowerCase()
+  for (const [needle, name] of FOREIGN_CITY) if (haystack.includes(needle)) return name
+  return city ?? region ?? '—'
+}
+
+// Feed descriptions arrive as entity-encoded HTML; flatten to readable plain
+// text (paragraphs as blank lines) so the site can render it safely.
+function stripHtml(html: string | undefined): string | null {
+  if (!html) return null
+  const text = html
+    .replace(/<\/p>|<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/[ \t]*\n[ \t]*/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  return text || null
+}
 
 export function mapType(realtyType: string): PropertyType {
   const rt = realtyType.toLowerCase()
@@ -280,14 +343,20 @@ export function mapListing(object: XmlNode): MappedListing | null {
     if (hasSewerage) utilities.push('SEWERAGE')
   }
 
+  const country = mapCountry(countryIso)
+
   return {
     externalId,
     source: 'QUICKDEAL',
     externalSource: 'quickDeal',
     direction,
+    country,
+    category: mapCategory(object, type),
     type,
     status,
     title: textAt(object, 'title') ?? fallbackTitle(type, rooms, area),
+    description: stripHtml(textAt(object, 'description') ?? textAt(object, 'descriptions', 'text')),
+    attributes: buildAttributes(object, type),
     rooms,
     area,
     floor: toInt(textAt(object, 'realty', 'floorNumber')),
@@ -297,11 +366,7 @@ export function mapListing(object: XmlNode): MappedListing | null {
       textAt(object, 'developmentHouse', 'name') ??
       textAt(object, 'building', 'name') ??
       null,
-    city:
-      textAt(object, 'address', 'city') ??
-      textAt(object, 'address', 'settlement') ??
-      textAt(object, 'address', 'region') ??
-      '—',
+    city: mapCity(object, country),
     district:
       textAt(object, 'address', 'district') ??
       textAt(object, 'districts', 'district', 'name') ??

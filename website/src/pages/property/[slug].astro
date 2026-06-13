@@ -103,7 +103,11 @@ function typeDetail(p: NonNullable<typeof property>): string {
       return `${roomsLabel(p.rooms).toLowerCase()} планировка площадью ${p.area} м².`
   }
 }
-const description = `${descIntro[property.direction]} ${typeDetail(property)}`
+const fallbackDescription = `${descIntro[property.direction]} ${typeDetail(property)}`
+// Real feed text when present, otherwise the synthetic per-type intro.
+const description = property.description ?? fallbackDescription
+const descParagraphs = description.split(/\n+/).map((p) => p.trim()).filter(Boolean)
+const attributes = property.attributes
 ---
 
 <Base
@@ -141,8 +145,21 @@ const description = `${descIntro[property.direction]} ${typeDetail(property)}`
           ))}
         </div>
 
+        {attributes.length > 0 && (
+          <>
+            <h2 class="block-t">Характеристики</h2>
+            <dl class="pdp__specs">
+              {attributes.map((a) => (
+                <div class="spec"><dt>{a.label}</dt><dd>{a.value}</dd></div>
+              ))}
+            </dl>
+          </>
+        )}
+
         <h2 class="block-t">Об объекте</h2>
-        <p class="pdp__desc">{description}</p>
+        {descParagraphs.map((p) => (
+          <p class="pdp__desc">{p}</p>
+        ))}
 
         {property.features.length > 0 && (
           <>
@@ -236,3 +253,34 @@ const description = `${descIntro[property.direction]} ${typeDetail(property)}`
     )}
   </main>
 </Base>
+
+<style>
+  .pdp__specs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+    margin: 0 0 10px;
+  }
+  .pdp__specs .spec {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line, #ece7df);
+    font-size: 15px;
+  }
+  .pdp__specs dt {
+    color: var(--muted, #8a8175);
+  }
+  .pdp__specs dd {
+    margin: 0;
+    text-align: right;
+    font-weight: 600;
+    color: var(--ink, #2b2723);
+  }
+  @media (max-width: 640px) {
+    .pdp__specs {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

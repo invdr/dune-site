@@ -1,4 +1,4 @@
-import type { PriceSet, PropertyDto } from '@dune/contracts'
+import type { PriceSet, PropertyAttribute, PropertyDto } from '@dune/contracts'
 
 import type { Property } from '../generated/prisma/client'
 
@@ -9,6 +9,8 @@ export function toPropertyDto(property: Property, pricing: PriceSet | null = nul
     id: property.id,
     slug: property.slug,
     direction: property.direction,
+    country: property.country,
+    category: property.category,
     type: property.type,
     status: property.status,
     title: property.title,
@@ -29,6 +31,9 @@ export function toPropertyDto(property: Property, pricing: PriceSet | null = nul
     placeholderTone: property.placeholderTone,
     badges: property.badges,
     features: property.features,
+    description: property.description,
+    // DB column is Json; the importer/contract guarantee the {label,value} shape.
+    attributes: (property.attributes ?? []) as PropertyAttribute[],
     source: property.source,
     lat: property.lat,
     lng: property.lng,

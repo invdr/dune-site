@@ -114,11 +114,31 @@ enum Currency {
   @@map("currency")
 }
 
+// Top-level catalog country (hierarchy: Country → City → Category → Type).
+enum Country {
+  RU
+  AE
+  SA
+
+  @@map("country")
+}
+
+// Жилое / коммерческое — third level of the catalog hierarchy.
+enum PropertyCategory {
+  RESIDENTIAL
+  COMMERCIAL
+
+  @@map("property_category")
+}
+
 model Property {
   id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
   // Human-readable identifier used in public URLs (e.g. "gz-01").
   slug            String            @unique
   direction       PropertyDirection
+  // Catalog hierarchy: country and category sit above `type`.
+  country         Country           @default(RU)
+  category        PropertyCategory  @default(RESIDENTIAL)
   type            PropertyType
   status          PropertyStatus    @default(DRAFT)
   title           String
@@ -150,6 +170,12 @@ model Property {
   badges          String[]
   // Bullet feature list shown on the property page.
   features        String[]
+  // Long marketing description (plain text), mirrored from the feed for
+  // QUICKDEAL rows; editable for SITE rows.
+  description     String?
+  // Type-specific characteristics for the property page, stored display-ready
+  // as [{ label, value }]. Feed-owned for QUICKDEAL rows.
+  attributes      Json              @default("[]")
   // Listing provenance; SITE rows are admin-authored, QUICKDEAL rows mirror the feed.
   source          PropertySource    @default(SITE)
   // Precise map point (§8, §11).

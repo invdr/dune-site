@@ -100,7 +100,7 @@ describe('mapListing against the real QuickDeal XML shape', () => {
     expect(flat.delivery).toBe('2025')
     expect(flat.isNewBuilding).toBe(false) // readySecondary
     expect(flat.title).toBe('Квартира в Дубай Марина 150 кв')
-    expect(flat.city).toBe('Дубай Марина')
+    expect(flat.city).toBe('Дубай') // "Дубай Марина" rolled up to the main city
   })
 
   test('RU house: RESALE/HOUSE, totalArea in m² (not the plot), fallback title', async () => {
@@ -115,6 +115,37 @@ describe('mapListing against the real QuickDeal XML shape', () => {
     expect(house.district).toBe('Гудермесский')
     expect(house.photos[0]).toBe('https://cdn.example/house/2.jpeg') // default photo first
     expect(house.managerName).toBe('Пётр Домов')
+  })
+})
+
+describe('country, category, description and attributes', () => {
+  const byLabel = (m: MappedListing) => Object.fromEntries(m.attributes.map((x) => [x.label, x.value]))
+
+  test('country & category derive from the feed', async () => {
+    const s = await mapSample()
+    expect(s['QD_RS_1000001']!.country).toBe('RU')
+    expect(s['QD_RS_1000002']!.country).toBe('AE')
+    expect(s['QD_RS_1000001']!.category).toBe('RESIDENTIAL')
+  })
+
+  test('description is flattened to plain text', async () => {
+    const land = (await mapSample())['QD_RS_1000001']!
+    expect(land.description).toContain('Участок 8 соток')
+    expect(land.description).not.toContain('<p>')
+  })
+
+  test('land attributes carry площадь / категория / коммуникации', async () => {
+    const land = byLabel((await mapSample())['QD_RS_1000001']!)
+    expect(land['Площадь участка']).toBe('8 сот.')
+    expect(land['Категория земли']).toBe('ИЖС')
+    expect(land['Коммуникации']).toContain('Вода')
+  })
+
+  test('apartment attributes carry площадь / комнаты / этаж', async () => {
+    const flat = byLabel((await mapSample())['QD_RS_1000002']!)
+    expect(flat['Общая площадь']).toBe('155 м²')
+    expect(flat['Комнат']).toBe('2')
+    expect(flat['Этаж']).toBe('3 из 30')
   })
 })
 

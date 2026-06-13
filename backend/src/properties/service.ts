@@ -135,6 +135,8 @@ export class PropertyService {
     }
 
     if (query.direction) where.direction = query.direction
+    if (query.country) where.country = query.country
+    if (query.category) where.category = query.category
     if (query.type) where.type = query.type
     if (query.currency) where.currency = query.currency
     if (query.city) where.city = { contains: query.city, mode: 'insensitive' }
