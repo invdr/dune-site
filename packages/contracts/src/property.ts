@@ -259,3 +259,18 @@ export const propertyResponseSchema = z.object({
 })
 
 export type PropertyResponse = z.infer<typeof propertyResponseSchema>
+
+// City facet for the catalog hierarchy: distinct published cities per country,
+// ordered by listing count so the catalog can offer real, populated options.
+export const propertyCityFacetSchema = z.object({
+  country: countrySchema,
+  city: z.string(),
+  count: z.number().int(),
+})
+
+export const propertyCitiesResponseSchema = z.object({
+  cities: z.array(propertyCityFacetSchema),
+})
+
+export type PropertyCityFacet = z.infer<typeof propertyCityFacetSchema>
+export type PropertyCitiesResponse = z.infer<typeof propertyCitiesResponseSchema>

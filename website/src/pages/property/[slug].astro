@@ -129,6 +129,16 @@ const attributes = property.attributes
 
     <div class="gallery" id="gallery" set:html={galleryHtml}></div>
 
+    {photos.length > 0 && (
+      <div class="lbox" id="lightbox" hidden data-photos={JSON.stringify(photos)}>
+        <button class="lbox__close" type="button" aria-label="Закрыть">&times;</button>
+        <button class="lbox__nav lbox__prev" type="button" aria-label="Предыдущее фото">&lsaquo;</button>
+        <img class="lbox__img" src={photos[0]} alt={property.title} />
+        <button class="lbox__nav lbox__next" type="button" aria-label="Следующее фото">&rsaquo;</button>
+        <div class="lbox__count"><span id="lboxCur">1</span> / {photos.length}</div>
+      </div>
+    )}
+
     <div class="pdp__layout">
       <div class="pdp__content">
         <div class="chips" style="margin-bottom:6px">
@@ -253,6 +263,11 @@ const attributes = property.attributes
     )}
   </main>
 </Base>
+
+<script>
+  import { initGallery } from '../../scripts/gallery'
+  initGallery()
+</script>
 
 <style>
   .pdp__specs {

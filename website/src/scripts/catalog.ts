@@ -1,15 +1,17 @@
+import type { Country, PropertyCategory } from '@dune/contracts'
+
 import { listProperties } from '../lib/api'
 import { cardHtml } from '../lib/card'
-import type { DirectionKey } from '../lib/directions'
 import {
   activePills,
-  DEFAULT_DIR,
+  applyTypeOption,
+  defaultState,
   headFor,
   parseState,
   priceCurrency,
-  priceEnabled,
   toQuery,
   toSearch,
+  typeOptionFor,
   type CatalogState,
 } from '../lib/catalogState'
 import { refreshFavorites } from './favorites'
@@ -21,35 +23,35 @@ const $$ = <T extends Element = HTMLElement>(sel: string) => Array.from(document
 let state: CatalogState
 let page = 1
 let pageCount = 1
+let citiesByCountry: Record<string, string[]> = {}
 
-function emptyState(): CatalogState {
-  return {
-    dir: DEFAULT_DIR,
-    type: null,
-    rooms: null,
-    minPrice: null,
-    maxPrice: null,
-    minArea: null,
-    maxArea: null,
-    installment: false,
-    premium: false,
-    isNewBuilding: false,
-    sort: 'newest',
+function populateCities(): void {
+  const sel = $<HTMLSelectElement>('#citySel')
+  if (!sel) return
+  const cities = citiesByCountry[state.country] ?? []
+  const opts = ['<option value="">Все города</option>']
+  for (const c of cities) {
+    const selected = state.city === c ? ' selected' : ''
+    opts.push(`<option value="${c}"${selected}>${c}</option>`)
   }
+  sel.innerHTML = opts.join('')
+  sel.value = state.city ?? ''
 }
 
 function syncControls(): void {
-  $$('#dirChips .chip').forEach((c) => c.classList.toggle('is-on', state.dir === c.getAttribute('data-dir')))
-  $$('#typeChips .chip').forEach((c) => c.classList.toggle('is-on', state.type === c.getAttribute('data-type')))
+  $$('#countryChips .chip').forEach((c) => c.classList.toggle('is-on', state.country === c.getAttribute('data-country')))
+  $$('#categoryChips .chip').forEach((c) => c.classList.toggle('is-on', state.category === c.getAttribute('data-cat')))
+  const activeType = typeOptionFor(state)?.key ?? null
+  $$('#typeChips .chip').forEach((c) => c.classList.toggle('is-on', activeType === c.getAttribute('data-type')))
   $$('#roomChips .chip').forEach((c) => {
     const v = Number(c.getAttribute('data-rooms'))
     const on = v === 4 ? (state.rooms ?? 0) >= 4 : state.rooms === v
     c.classList.toggle('is-on', on)
   })
 
-  const priceGroup = $('#priceGroup')
+  populateCities()
+
   const priceLabel = $('#priceLabel')
-  if (priceGroup) priceGroup.toggleAttribute('hidden', !priceEnabled(state))
   if (priceLabel) priceLabel.textContent = `Цена, ${priceCurrency(state) === 'USD' ? '$' : '₽'}`
   setVal('#pmin', state.minPrice)
   setVal('#pmax', state.maxPrice)
@@ -58,7 +60,6 @@ function syncControls(): void {
 
   setChecked('#instToggle', state.installment)
   setChecked('#premToggle', state.premium)
-  setChecked('#newToggle', state.isNewBuilding)
   const sortSel = $<HTMLSelectElement>('#sortSel')
   if (sortSel) sortSel.value = state.sort
 }
@@ -91,7 +92,6 @@ function updateHead(): void {
   if (title) title.innerHTML = head.titleHtml
   if (sub) sub.textContent = head.sub
   if (crumb) crumb.textContent = head.crumb
-  $$('[data-nav]').forEach((a) => a.classList.toggle('is-active', a.getAttribute('data-nav') === state.dir))
 }
 
 function writeURL(): void {
@@ -148,17 +148,32 @@ async function loadMore(): Promise<void> {
 }
 
 function bind(): void {
-  $('#dirChips')?.addEventListener('click', (e) => {
+  $('#countryChips')?.addEventListener('click', (e) => {
     const c = (e.target as HTMLElement).closest<HTMLElement>('.chip')
     if (!c) return
-    const dir = c.getAttribute('data-dir') as DirectionKey
-    // Mandatory single direction: switch to the clicked one, never clear it.
-    if (state.dir === dir) return
-    state.dir = dir
-    // Price bounds were entered in the previous direction's currency — reset
-    // them so the slider stays consistent with the new currency.
+    const country = c.getAttribute('data-country') as Country
+    // Mandatory single country: switch, never clear.
+    if (state.country === country) return
+    state.country = country
+    // City list and price currency are country-scoped — reset them so the
+    // filters stay consistent with the new country.
+    state.city = null
     state.minPrice = null
     state.maxPrice = null
+    syncControls()
+    void load()
+  })
+
+  $<HTMLSelectElement>('#citySel')?.addEventListener('change', function () {
+    state.city = this.value || null
+    void load()
+  })
+
+  $('#categoryChips')?.addEventListener('click', (e) => {
+    const c = (e.target as HTMLElement).closest<HTMLElement>('.chip')
+    if (!c) return
+    const cat = c.getAttribute('data-cat') as PropertyCategory
+    state.category = state.category === cat ? null : cat
     syncControls()
     void load()
   })
@@ -166,8 +181,7 @@ function bind(): void {
   $('#typeChips')?.addEventListener('click', (e) => {
     const c = (e.target as HTMLElement).closest<HTMLElement>('.chip')
     if (!c) return
-    const type = c.getAttribute('data-type') as CatalogState['type']
-    state.type = state.type === type ? null : type
+    applyTypeOption(state, c.getAttribute('data-type') ?? '')
     syncControls()
     void load()
   })
@@ -189,7 +203,6 @@ function bind(): void {
 
   bindToggle('#instToggle', 'installment')
   bindToggle('#premToggle', 'premium')
-  bindToggle('#newToggle', 'isNewBuilding')
 
   $<HTMLSelectElement>('#sortSel')?.addEventListener('change', function () {
     state.sort = this.value
@@ -205,7 +218,9 @@ function bind(): void {
   })
 
   const reset = () => {
-    state = emptyState()
+    const country = state.country // keep the chosen country, clear refinements
+    state = defaultState()
+    state.country = country
     syncControls()
     void load()
   }
@@ -243,7 +258,7 @@ function bindNum(sel: string, key: 'minPrice' | 'maxPrice' | 'minArea' | 'maxAre
   })
 }
 
-function bindToggle(sel: string, key: 'installment' | 'premium' | 'isNewBuilding'): void {
+function bindToggle(sel: string, key: 'installment' | 'premium'): void {
   $<HTMLInputElement>(sel)?.addEventListener('change', function () {
     state[key] = this.checked
     void load()
@@ -252,9 +267,16 @@ function bindToggle(sel: string, key: 'installment' | 'premium' | 'isNewBuilding
 
 function removePill(key: string): void {
   switch (key) {
-    // 'dir' is intentionally absent: direction is mandatory and has no pill.
+    // 'country' is intentionally absent: it is mandatory and has no pill.
+    case 'city':
+      state.city = null
+      break
+    case 'cat':
+      state.category = null
+      break
     case 'type':
       state.type = null
+      state.isNewBuilding = false
       break
     case 'rooms':
       state.rooms = null
@@ -277,9 +299,6 @@ function removePill(key: string): void {
     case 'prem':
       state.premium = false
       break
-    case 'new':
-      state.isNewBuilding = false
-      break
   }
 }
 
@@ -288,6 +307,11 @@ export function initCatalog(): void {
   const main = $('#catalogMain')
   pageCount = Number(main?.getAttribute('data-pagecount') ?? '1') || 1
   page = 1
+  try {
+    citiesByCountry = JSON.parse($('#citySel')?.getAttribute('data-cities') ?? '{}')
+  } catch {
+    citiesByCountry = {}
+  }
   syncControls()
   bind()
   updateShowMore()

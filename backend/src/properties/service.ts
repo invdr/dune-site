@@ -22,6 +22,20 @@ export class PropertyService {
     private readonly currency: CurrencyService,
   ) {}
 
+  // Distinct published cities per country, ordered by listing count, for the
+  // catalog's City filter (second level of the hierarchy).
+  async cities(): Promise<{ country: Property['country']; city: string; count: number }[]> {
+    const groups = await this.db.property.groupBy({
+      by: ['country', 'city'],
+      where: { status: 'PUBLISHED' },
+      _count: { _all: true },
+    })
+    return groups
+      .map((g) => ({ country: g.country, city: g.city, count: g._count._all }))
+      .filter((g) => g.city && g.city !== '—')
+      .sort((a, b) => b.count - a.count || a.city.localeCompare(b.city, 'ru'))
+  }
+
   async list(query: PropertyListQuery | AdminPropertyListQuery, options: ListOptions) {
     const where = this.buildWhere(query, options)
     const skip = (query.page - 1) * query.limit

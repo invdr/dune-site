@@ -2,6 +2,8 @@ import type {
   CreateLeadRequest,
   HomeContentDto,
   LeadDto,
+  PropertyCitiesResponse,
+  PropertyCityFacet,
   PropertyDto,
   PropertyListResponse,
   PublicSiteSettingsDto,
@@ -29,6 +31,9 @@ async function getJson<T>(path: string): Promise<T> {
 // Catalog/featured query. All keys optional; only defined values are appended.
 export interface PropertyQuery {
   direction?: string
+  country?: string
+  category?: string
+  city?: string
   type?: string
   rooms?: number
   minPrice?: number
@@ -61,6 +66,17 @@ export async function listProperties(query: PropertyQuery = {}): Promise<Propert
     console.error('[api] listProperties failed', error)
     const limit = query.limit ?? 24
     return { items: [], total: 0, page: query.page ?? 1, limit, pageCount: 0 }
+  }
+}
+
+// Distinct published cities per country for the catalog City filter.
+export async function listCities(): Promise<PropertyCityFacet[]> {
+  try {
+    const { cities } = await getJson<PropertyCitiesResponse>('/api/properties/cities')
+    return cities
+  } catch (error) {
+    console.error('[api] listCities failed', error)
+    return []
   }
 }
 

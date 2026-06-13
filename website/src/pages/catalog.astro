@@ -2,34 +2,43 @@
 export const prerender = false
 
 import Base from '../layouts/Base.astro'
-import { getPublicSettings, listProperties } from '../lib/api'
+import { getPublicSettings, listCities, listProperties } from '../lib/api'
 import { cardHtml } from '../lib/card'
-import { PROPERTY_TYPES } from '../lib/directions'
+import { COUNTRIES, TYPE_OPTIONS } from '../lib/directions'
 import {
   activePills,
   headFor,
   parseState,
   priceCurrency,
-  priceEnabled,
   toQuery,
+  typeOptionFor,
 } from '../lib/catalogState'
 
 const state = parseState(Astro.url.searchParams)
 const head = headFor(state)
-const settings = await getPublicSettings()
-const result = await listProperties(toQuery(state, 1))
+const [settings, result, cityFacets] = await Promise.all([
+  getPublicSettings(),
+  listProperties(toQuery(state, 1)),
+  listCities(),
+])
+
+// Cities grouped by country so the client can repopulate the select when the
+// country changes without another round-trip.
+const citiesByCountry: Record<string, string[]> = { RU: [], AE: [], SA: [] }
+for (const f of cityFacets) {
+  ;(citiesByCountry[f.country] ??= []).push(f.city)
+}
+const cityOptions = citiesByCountry[state.country] ?? []
 
 const gridHtml = result.items.map((p) => cardHtml(p)).join('')
 const pills = activePills(state)
-const priceOn = priceEnabled(state)
 const priceCur = priceCurrency(state) === 'USD' ? '$' : '₽'
 const hasMore = result.pageCount > 1
+const activeTypeKey = typeOptionFor(state)?.key ?? null
 
-const dirChips = [
-  { key: 'new', label: 'Новостройки' },
-  { key: 'resale', label: 'Вторичка' },
-  { key: 'dubai', label: 'Дубай' },
-  { key: 'saudi', label: 'KSA' },
+const categoryChips = [
+  { value: 'RESIDENTIAL', label: 'Жилая' },
+  { value: 'COMMERCIAL', label: 'Коммерческая' },
 ]
 const roomChips = [
   { value: 0, label: 'Студия' },
@@ -51,7 +60,6 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
 <Base
   title={`${head.title} — DUNE Real Estate`}
   description={head.sub}
-  active={state.dir}
   companyPhone={settings.companyPhone}
   companyContact={settings.companyContact}
 >
@@ -85,11 +93,30 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
             </button>
           </div>
 
-          <div class="fgroup" role="group" aria-label="Направление">
-            <label>Направление</label>
-            <div class="chips" id="dirChips">
-              {dirChips.map((c) => (
-                <button class:list={['chip', state.dir === c.key && 'is-on']} data-dir={c.key}>{c.label}</button>
+          <div class="fgroup" role="group" aria-label="Страна">
+            <label>Страна</label>
+            <div class="chips" id="countryChips">
+              {COUNTRIES.map((c) => (
+                <button class:list={['chip', state.country === c.key && 'is-on']} data-country={c.key}>{c.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div class="fgroup" role="group" aria-label="Город">
+            <label>Город</label>
+            <select id="citySel" class="fselect" aria-label="Город" data-cities={JSON.stringify(citiesByCountry)}>
+              <option value="">Все города</option>
+              {cityOptions.map((c) => (
+                <option value={c} selected={state.city === c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="fgroup" role="group" aria-label="Категория">
+            <label>Категория</label>
+            <div class="chips" id="categoryChips">
+              {categoryChips.map((c) => (
+                <button class:list={['chip', state.category === c.value && 'is-on']} data-cat={c.value}>{c.label}</button>
               ))}
             </div>
           </div>
@@ -97,8 +124,8 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
           <div class="fgroup" role="group" aria-label="Тип">
             <label>Тип объекта</label>
             <div class="chips" id="typeChips">
-              {PROPERTY_TYPES.map((t) => (
-                <button class:list={['chip', state.type === t.value && 'is-on']} data-type={t.value}>{t.label}</button>
+              {TYPE_OPTIONS.map((t) => (
+                <button class:list={['chip', activeTypeKey === t.key && 'is-on']} data-type={t.key}>{t.label}</button>
               ))}
             </div>
           </div>
@@ -112,7 +139,7 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
             </div>
           </div>
 
-          <div class="fgroup" id="priceGroup" hidden={!priceOn}>
+          <div class="fgroup" id="priceGroup">
             <label id="priceLabel">{`Цена, ${priceCur}`}</label>
             <div class="frow">
               <input type="number" id="pmin" placeholder="от" min="0" step="100000" aria-label="Цена от" value={state.minPrice ?? ''} />
@@ -134,8 +161,6 @@ const roomActive = (v: number) => (v === 4 ? (state.rooms ?? 0) >= 4 : state.roo
               <input type="checkbox" id="instToggle" checked={state.installment} /><span class="switch"></span></label>
             <label class="ftoggle"><span>Премиум-класс</span>
               <input type="checkbox" id="premToggle" checked={state.premium} /><span class="switch"></span></label>
-            <label class="ftoggle"><span>Новостройки</span>
-              <input type="checkbox" id="newToggle" checked={state.isNewBuilding} /><span class="switch"></span></label>
           </div>
 
           <button class="btn btn--primary btn--block filters__apply hide-desktop" data-filters-close type="button" style="margin-top:8px">

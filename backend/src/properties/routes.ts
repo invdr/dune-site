@@ -2,6 +2,7 @@ import {
   adminPropertyListQuerySchema,
   apiErrorSchema,
   createPropertySchema,
+  propertyCitiesResponseSchema,
   propertyListQuerySchema,
   propertyListResponseSchema,
   propertyResponseSchema,
@@ -60,6 +61,19 @@ const listPublicRoute = createRoute({
   },
 })
 
+// Static `/cities` must be registered before `/{slug}`, otherwise the slug
+// param route would capture it.
+const citiesRoute = createRoute({
+  method: 'get',
+  path: '/cities',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: propertyCitiesResponseSchema } },
+      description: 'Distinct published cities per country',
+    },
+  },
+})
+
 const getPublicRoute = createRoute({
   method: 'get',
   path: '/{slug}',
@@ -76,6 +90,11 @@ export function createPublicPropertyRoutes() {
   routes.openapi(listPublicRoute, async (c) => {
     const result = await c.get('propertyService').list(c.req.valid('query'), { publicOnly: true })
     return c.json(result, 200)
+  })
+
+  routes.openapi(citiesRoute, async (c) => {
+    const cities = await c.get('propertyService').cities()
+    return c.json({ cities }, 200)
   })
 
   routes.openapi(getPublicRoute, async (c) => {

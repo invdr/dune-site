@@ -1,4 +1,4 @@
-import type { PropertyDirection, PropertyType } from '@dune/contracts'
+import type { Country, PropertyDirection, PropertyType } from '@dune/contracts'
 
 // Direction metadata shared by the home page, catalog and property card. Keyed
 // by the lowercase URL token used across the prototype (`?dir=new`), mapped to
@@ -52,4 +52,44 @@ export const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: 'TOWNHOUSE', label: 'Таунхаус' },
   { value: 'COMMERCIAL', label: 'Коммерция' },
   { value: 'LAND', label: 'Участок' },
+]
+
+// Top level of the catalog hierarchy (Country → City → Category → Type).
+// `currency` drives the price filter; RU prices are ₽, the Gulf markets are $.
+export interface CountryMeta {
+  key: Country
+  label: string
+  short: string
+  currency: 'RUB' | 'USD'
+  sub: string
+}
+
+export const COUNTRIES: CountryMeta[] = [
+  { key: 'RU', label: 'Россия', short: 'Россия', currency: 'RUB', sub: 'Новостройки и вторичка в Грозном, Гудермесе и по всей Чеченской Республике.' },
+  { key: 'AE', label: 'ОАЭ', short: 'ОАЭ', currency: 'USD', sub: 'Инвестиционные апартаменты и виллы в Дубае — план оплаты и доходность.' },
+  { key: 'SA', label: 'Саудовская Аравия', short: 'KSA', currency: 'USD', sub: 'Эр-Рияд и Джидда на фоне программы Vision 2030.' },
+]
+
+const COUNTRY_BY_KEY = new Map<string, CountryMeta>(COUNTRIES.map((c) => [c.key, c]))
+
+export function countryMeta(key: string | null | undefined): CountryMeta | undefined {
+  return key ? COUNTRY_BY_KEY.get(key) : undefined
+}
+
+// Catalog type chips. New-build apartments are a distinct chip backed by
+// type=APARTMENT + isNewBuilding=true; plain "Квартира" means resale.
+export interface TypeOption {
+  key: string
+  label: string
+  type: PropertyType
+  isNewBuilding: boolean
+}
+
+export const TYPE_OPTIONS: TypeOption[] = [
+  { key: 'apartment', label: 'Квартира', type: 'APARTMENT', isNewBuilding: false },
+  { key: 'apartment_new', label: 'Квартира в новостройке', type: 'APARTMENT', isNewBuilding: true },
+  { key: 'house', label: 'Дом', type: 'HOUSE', isNewBuilding: false },
+  { key: 'townhouse', label: 'Таунхаус', type: 'TOWNHOUSE', isNewBuilding: false },
+  { key: 'commercial', label: 'Коммерция', type: 'COMMERCIAL', isNewBuilding: false },
+  { key: 'land', label: 'Участок', type: 'LAND', isNewBuilding: false },
 ]

@@ -176,4 +176,35 @@ maybeDescribe('property API integration', () => {
     const published = await app.request('/api/properties/pub-1')
     expect(published.status).toBe(200)
   })
+
+  test('catalog hierarchy: country/category filters and city facets', async () => {
+    const token = await authToken()
+    const make = (over: Record<string, unknown>) =>
+      app.request('/api/admin/properties', {
+        method: 'POST',
+        headers: authHeaders(token),
+        body: JSON.stringify({ ...baseProperty, status: 'PUBLISHED', ...over }),
+      })
+
+    await make({ slug: 'ru-gz', country: 'RU', category: 'RESIDENTIAL', city: 'Грозный' })
+    await make({ slug: 'ru-gd', country: 'RU', category: 'RESIDENTIAL', city: 'Гудермес' })
+    await make({ slug: 'ru-com', country: 'RU', category: 'COMMERCIAL', type: 'COMMERCIAL', city: 'Грозный' })
+    await make({ slug: 'ae-db', country: 'AE', category: 'RESIDENTIAL', city: 'Дубай', currency: 'USD' })
+
+    const ru = await (await app.request('/api/properties?country=RU')).json()
+    expect(ru.total).toBe(3)
+
+    const ae = await (await app.request('/api/properties?country=AE')).json()
+    expect(ae.items.map((p: { slug: string }) => p.slug)).toEqual(['ae-db'])
+
+    const commercial = await (await app.request('/api/properties?category=COMMERCIAL')).json()
+    expect(commercial.items.map((p: { slug: string }) => p.slug)).toEqual(['ru-com'])
+
+    const citiesRes = await app.request('/api/properties/cities')
+    expect(citiesRes.status).toBe(200)
+    const { cities } = await citiesRes.json()
+    const grozny = cities.find((c: { country: string; city: string }) => c.country === 'RU' && c.city === 'Грозный')
+    expect(grozny.count).toBe(2)
+    expect(cities.some((c: { country: string; city: string }) => c.country === 'AE' && c.city === 'Дубай')).toBe(true)
+  })
 })
