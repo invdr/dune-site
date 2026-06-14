@@ -187,6 +187,9 @@ export function createAuthRoutes() {
   routes.openapi(registerRoute, async (c) => {
     const auth = c.get('authService')
     const env = c.get('env')
+    if (!env.REGISTRATION_ENABLED) {
+      throw new AppError(403, 'FORBIDDEN', 'Registration is disabled')
+    }
     const result = await auth.register(c.req.valid('json'), requestMetadata(c))
     setRefreshCookie(c, result.refreshToken, env)
 

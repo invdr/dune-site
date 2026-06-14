@@ -1,3 +1,6 @@
+import { CurrencyService } from './currency/service'
+import { LeadService } from './leads/service'
+import { QuickDealImporter } from './quickdeal/service'
 import { createBackendRuntime, type BackendRuntime } from './runtime'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
@@ -9,6 +12,30 @@ const cronTasks = {
   'db:ping': async ({ prisma }) => {
     await prisma.$queryRaw`SELECT 1`
     console.log('Cron db:ping task completed.')
+  },
+  // Daily USD→RUB refresh from the CBR; on failure the last cached rate stands.
+  'fx:refresh': async ({ prisma }) => {
+    try {
+      const { value } = await new CurrencyService(prisma).refreshFromCbr()
+      console.log(`Cron fx:refresh updated USD→RUB to ${value}.`)
+    } catch (error) {
+      console.error('Cron fx:refresh failed; keeping last known rate.', error)
+    }
+  },
+  // Safety net for leads whose background delivery never completed (crash or a
+  // sustained Telegram outage). Idempotent; run every few minutes.
+  'leads:redeliver': async ({ prisma }) => {
+    const { retried } = await new LeadService(prisma).redeliverPending()
+    if (retried > 0) console.log(`Cron leads:redeliver retried ${retried} lead(s).`)
+  },
+  // Hourly mirror of the QuickDeal feed.
+  'quickdeal:sync': async ({ prisma, env }) => {
+    const importer = new QuickDealImporter(prisma, {
+      feedUrl: env.QUICKDEAL_FEED_URL ?? null,
+      token: env.QUICKDEAL_FEED_TOKEN ?? null,
+    })
+    const result = await importer.sync()
+    console.log(`Cron quickdeal:sync ${result.status}.`, result)
   },
 } satisfies Record<string, CronTask>
 

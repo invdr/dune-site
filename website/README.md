@@ -8,6 +8,34 @@ The website workspace is a separate Astro project for public, SEO-facing surface
 - TypeScript
 - Vite through Astro
 
+## DUNE storefront (this project)
+
+The DUNE public storefront (home, catalog, property detail, favourites) lives in
+this workspace. It consumes the backend API via `@dune/contracts` types and an
+isomorphic client in `src/lib/api.ts`. Configuration is by environment (see
+`.env.example`):
+
+- `PUBLIC_API_URL` — backend base URL the storefront reads from (listings,
+  leads, home content, company contact). Inlined for client islands and read in
+  SSR frontmatter. Defaults to `http://localhost:3000`.
+- `PUBLIC_SITE_URL` — absolute origin for canonical URLs and OG/Twitter tags.
+
+This surface runs **SSR**: a Node adapter is installed and `output` stays
+`static`, so pages prerender by default while the data-driven routes opt into
+on-demand rendering with `export const prerender = false`:
+
+- `/` (home), `/catalog`, `/property/[slug]` — SSR, so SEO-critical content
+  (titles, prices, descriptions, per-listing URLs) is in the initial HTML and
+  reflects live API data and query filters. Client islands add interactivity
+  (search tabs, catalog filters + "Показать ещё", favourites, lead form).
+- `/404` — SSR (so `Astro.rewrite('/404')` from a missing listing works).
+- `/favorites` — prerendered shell; favourites are localStorage-only and
+  populated client-side.
+
+Because dynamic routes render on demand, `astro build` does **not** call the
+backend; only prerendered routes are built. Deploy this surface as an App
+Platform **service** (runtime container), not a Static Site — see Deployment.
+
 ## Rendering model
 
 Astro prerenders every page to static HTML by default, so the standard build is a cheap static site in `website/dist`, deployable to a Static Site host or object storage + CDN. No server adapter is installed by default, on purpose: the common case (landing and content pages, plus stable public marketplace pages) is pure static.

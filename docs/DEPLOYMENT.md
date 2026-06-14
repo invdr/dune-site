@@ -2,7 +2,9 @@
 
 Use this document only after the user has asked for deployment. Read the root [README.md](../README.md) and active surface READMEs first; they record the installed project's active surfaces, deferred surfaces, release targets, and validation scope.
 
-The default production path is DigitalOcean App Platform plus DigitalOcean Managed PostgreSQL. Do not ask the user to choose a cloud provider during first-run setup. Ask for product-facing release details instead:
+For a self-managed Linux VPS (e.g. sweb.ru) without a PaaS, use [DEPLOYMENT_VPS.md](DEPLOYMENT_VPS.md) instead — it covers nginx, systemd services, cron timers, and TLS for the same three surfaces.
+
+The default managed production path is DigitalOcean App Platform plus DigitalOcean Managed PostgreSQL. Do not ask the user to choose a cloud provider during first-run setup. Ask for product-facing release details instead:
 
 - which active surfaces should be released now: backend/API, webapp, website, or full-stack;
 - production domains/URLs for API, webapp, and website;
@@ -211,6 +213,18 @@ bun run deploy:do:specs backend-final
 ```
 
 Use worker components only after a real long-running handler exists. The generator requires `DO_BACKEND_WORKER_RUN_COMMAND` and refuses the template placeholder `bun run start:worker`, because that placeholder exits immediately and should not be deployed as an App Platform worker. Use scheduled jobs only for concrete product tasks, and keep the schedule at DigitalOcean's supported cadence of at least 15 minutes. Both optional components use `backend/Dockerfile`, the repository-root build context, and the same managed PostgreSQL binding as the API. Add Spaces or other runtime secrets to those components when the specific background task needs them.
+
+### DUNE scheduled tasks (Этап 2)
+
+Run these as App Platform scheduled jobs (`bun run start:cron -- <task>`):
+
+- `fx:refresh` — daily (after ~12:00 MSK, when the CBR publishes the next day's rate). Refreshes the cached `USD→RUB`; on failure it logs and keeps the last known value.
+- `quickdeal:sync` — hourly. Mirrors the QuickDeal feed; an unreachable or empty feed keeps the last catalog state (never mass-archives).
+- `leads:redeliver` — every ~15 minutes (DO's minimum cadence). Retries lead notifications whose in-request delivery was lost to a crash or a sustained Telegram outage. Idempotent.
+
+**Where each integration secret lives.** Telegram (`telegramBotToken`/`telegramChatId`), Bitrix24 (`bitrixWebhookUrl`/`bitrixEnabled`), and the USD→RUB surcharge live in the `SiteSettings` DB row so admins can edit them in the panel. The QuickDeal feed URL/token live in backend **env** (`QUICKDEAL_FEED_URL`, `QUICKDEAL_FEED_TOKEN`) — the feed secret is operator-managed, not admin-editable, and must never be committed.
+
+**Lead rate limiter is in-process.** The public `POST /api/leads` limiter (`backend/src/http/rate-limit.ts`) keeps per-IP counters in memory: it is correct for the default single backend instance but resets on every deploy and is not shared across containers. Before raising `instance_count` above 1, move it to a shared store (e.g. Managed Valkey / Postgres) or accept per-instance limits.
 
 ## Real-Time And Horizontal Scaling
 

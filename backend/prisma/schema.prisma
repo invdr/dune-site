@@ -35,3 +35,327 @@ model AuthSession {
   @@index([expiresAt], map: "auth_sessions_expires_at_idx")
   @@map("auth_sessions")
 }
+
+// Sales direction for a listing (направление): primary market, resale, and
+// the two foreign investment programs DUNE sells into.
+enum PropertyDirection {
+  NEW
+  RESALE
+  DUBAI
+  SAUDI
+
+  @@map("property_direction")
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  TOWNHOUSE
+  COMMERCIAL
+  LAND
+
+  @@map("property_type")
+}
+
+// Provenance of a listing: mirrored from the QuickDeal CRM feed, or authored
+// directly on the site. Feed-sourced rows are read-only on the site.
+enum PropertySource {
+  QUICKDEAL
+  SITE
+
+  @@map("property_source")
+}
+
+// Permitted land-use category for LAND listings (РФ): ИЖС/СНТ/ЛПХ/коммерческая.
+enum LandUse {
+  IZHS
+  SNT
+  LPH
+  COMMERCIAL
+
+  @@map("land_use")
+}
+
+// Kind of commercial unit for COMMERCIAL listings.
+enum CommercialKind {
+  OFFICE
+  RETAIL
+  WAREHOUSE
+  FOOD_SERVICE
+  FREE_PURPOSE
+
+  @@map("commercial_kind")
+}
+
+// Processing state of an inbound lead.
+enum LeadStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  SPAM
+
+  @@map("lead_status")
+}
+
+// Publication lifecycle. Only PUBLISHED listings are exposed on the public site.
+enum PropertyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  SOLD
+
+  @@map("property_status")
+}
+
+enum Currency {
+  RUB
+  USD
+
+  @@map("currency")
+}
+
+// Top-level catalog country (hierarchy: Country → City → Category → Type).
+enum Country {
+  RU
+  AE
+  SA
+
+  @@map("country")
+}
+
+// Жилое / коммерческое — third level of the catalog hierarchy.
+enum PropertyCategory {
+  RESIDENTIAL
+  COMMERCIAL
+
+  @@map("property_category")
+}
+
+model Property {
+  id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  // Human-readable identifier used in public URLs (e.g. "gz-01").
+  slug            String            @unique
+  direction       PropertyDirection
+  // Catalog hierarchy: country and category sit above `type`.
+  country         Country           @default(RU)
+  category        PropertyCategory  @default(RESIDENTIAL)
+  type            PropertyType
+  status          PropertyStatus    @default(DRAFT)
+  title           String
+  // Bedroom count; 0 represents a studio.
+  rooms           Int               @default(0)
+  // Living area in whole square metres.
+  area            Int
+  // Floor of the unit and total floors in the building (apartments only).
+  floor           Int?
+  totalFloors     Int?              @map("total_floors")
+  // Residential complex / project name (ЖК).
+  complex         String?
+  city            String
+  district        String?
+  // Listing price expressed in `currency` major units.
+  price           Int
+  currency        Currency          @default(RUB)
+  premium         Boolean           @default(false)
+  // Installment / rassrochka availability.
+  installment     Boolean           @default(false)
+  // Primary-market new build marker (новостройка).
+  isNewBuilding   Boolean           @default(false) @map("is_new_building")
+  // Handover status copy, e.g. "Сдан" or "IV кв. 2026".
+  delivery        String?
+  photos          String[]
+  // Branded gradient tone used when no photos are present ('', 'ink', 'sand').
+  placeholderTone String?           @map("placeholder_tone")
+  // Bespoke marketing labels (e.g. "ROI 8%", "У моря").
+  badges          String[]
+  // Bullet feature list shown on the property page.
+  features        String[]
+  // Long marketing description (plain text), mirrored from the feed for
+  // QUICKDEAL rows; editable for SITE rows.
+  description     String?
+  // Type-specific characteristics for the property page, stored display-ready
+  // as [{ label, value }]. Feed-owned for QUICKDEAL rows.
+  attributes      Json              @default("[]")
+  // Listing provenance; SITE rows are admin-authored, QUICKDEAL rows mirror the feed.
+  source          PropertySource    @default(SITE)
+  // Precise map point (§8, §11).
+  lat             Float?
+  lng             Float?
+  // LAND-only facets.
+  landUse         LandUse?          @map("land_use")
+  utilities       String[]
+  // COMMERCIAL-only facet.
+  commercialKind  CommercialKind?   @map("commercial_kind")
+  // Per-object personal manager mirrored from the QuickDeal `assigned` field.
+  // First tier of the card's manager chain (personal → direction → company);
+  // feed-owned for QUICKDEAL rows, editable for SITE rows.
+  managerName     String?           @map("manager_name")
+  managerPhone    String?           @map("manager_phone")
+  managerPhotoUrl String?           @map("manager_photo_url")
+  // QuickDeal feed identity (feedId) and sync metadata; owned by the importer.
+  externalId      String?           @map("external_id")
+  externalSource  String?           @map("external_source")
+  syncedAt        DateTime?         @map("synced_at")
+  leads           Lead[]
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  publishedAt     DateTime?         @map("published_at")
+
+  // SITE rows carry a null externalId (Postgres treats nulls as distinct, so
+  // many can coexist); QuickDeal ids are unique within the QUICKDEAL source.
+  @@unique([source, externalId], map: "properties_source_external_id_key")
+  @@index([status], map: "properties_status_idx")
+  @@index([direction], map: "properties_direction_idx")
+  @@index([type], map: "properties_type_idx")
+  @@index([source], map: "properties_source_idx")
+  @@index([price], map: "properties_price_idx")
+  @@index([status, direction], map: "properties_status_direction_idx")
+  @@map("properties")
+}
+
+// Residential complex (ЖК) — an admin-authored marketing entity for new-build
+// projects. Apartment units (Property rows with a matching `complex` name) are
+// joined at read time to surface available lots and the "от X ₽/м²" headline.
+model Complex {
+  id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  // Public URL identifier, e.g. "zhk-an-nur".
+  slug            String            @unique
+  // ЖК name; also the join key to Property.complex for unit listings.
+  name            String
+  status          PropertyStatus    @default(DRAFT)
+  direction       PropertyDirection @default(NEW)
+  country         Country           @default(RU)
+  city            String
+  district        String?
+  // Developer / застройщик.
+  developer       String?
+  // Handover copy, e.g. "Сдан" or "IV кв. 2026".
+  delivery        String?
+  // Long marketing description (plain text).
+  description     String?
+  photos          String[]
+  // Branded gradient tone used when no photos are present ('', 'ink', 'sand').
+  placeholderTone String?           @map("placeholder_tone")
+  // Bespoke marketing labels (e.g. "Бизнес-класс").
+  badges          String[]
+  // Bullet feature list shown on the complex page.
+  features        String[]
+  // Display-ready characteristics, stored as [{ label, value }].
+  attributes      Json              @default("[]")
+  // "Рекомендуемые" / featured flag for the catalog.
+  premium         Boolean           @default(false)
+  // Manual aggregate fallbacks shown when no units are linked; when linked
+  // units exist these are computed from them at read time.
+  priceFrom       Int?              @map("price_from")
+  areaFrom        Int?              @map("area_from")
+  currency        Currency          @default(RUB)
+  address         String?
+  lat             Float?
+  lng             Float?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  publishedAt     DateTime?         @map("published_at")
+
+  @@index([status], map: "complexes_status_idx")
+  @@index([direction], map: "complexes_direction_idx")
+  @@map("complexes")
+}
+
+model Lead {
+  id             String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name           String
+  phone          String
+  email          String?
+  message        String?
+  // Free-form origin tag (page / form type).
+  source         String?
+  // Optional sales line and listing the lead came from.
+  direction      PropertyDirection?
+  propertyId     String?           @db.Uuid @map("property_id")
+  property       Property?         @relation(fields: [propertyId], references: [id], onDelete: SetNull, map: "leads_property_id_fkey")
+  status         LeadStatus        @default(NEW)
+  // Time the visitor accepted PDn processing (152-ФЗ) — required at creation.
+  consentAt      DateTime          @map("consent_at")
+  // Delivery markers: when the lead reached each channel (null = not delivered).
+  telegramSentAt DateTime?         @map("telegram_sent_at")
+  bitrixSentAt   DateTime?         @map("bitrix_sent_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  @@index([status], map: "leads_status_idx")
+  @@index([propertyId], map: "leads_property_id_idx")
+  @@index([createdAt], map: "leads_created_at_idx")
+  @@map("leads")
+}
+
+model Manager {
+  id        String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  // Exactly one manager record per direction (active toggles visibility).
+  direction PropertyDirection @unique(map: "managers_direction_key")
+  name      String
+  photo     String?
+  phone     String?
+  // Messenger or other contact handle.
+  contact   String?
+  active    Boolean           @default(true)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  @@map("managers")
+}
+
+// Singleton config row (id pinned to "singleton"). Integration secrets + FX surcharge.
+model SiteSettings {
+  id               String   @id @default("singleton")
+  telegramBotToken String?  @map("telegram_bot_token")
+  telegramChatId   String?  @map("telegram_chat_id")
+  bitrixWebhookUrl String?  @map("bitrix_webhook_url")
+  bitrixEnabled    Boolean  @default(false) @map("bitrix_enabled")
+  // Yandex Maps JS API key, managed from the admin settings screen. Used by the
+  // admin coordinate picker (and any keyed map surface). Domain-restricted
+  // client key — not a server secret like the integration tokens above.
+  yandexMapsApiKey String?  @map("yandex_maps_api_key")
+  // Added to the CBR USD→RUB rate, in whole roubles (default +2 ₽).
+  usdRubSurcharge  Int      @default(2) @map("usd_rub_surcharge")
+  // Company-wide fallback contact, shown when neither the object's personal
+  // manager nor the direction manager is available (last tier of the chain).
+  // Publicly readable (unlike the integration secrets above).
+  companyName      String?  @map("company_name")
+  companyPhone     String?  @map("company_phone")
+  companyContact   String?  @map("company_contact")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// Singleton editorial content for the fixed home-page sections (§6).
+model HomeContent {
+  id           String   @id @default("singleton")
+  heroTitle    String?  @map("hero_title")
+  heroSubtitle String?  @map("hero_subtitle")
+  heroImageUrl String?  @map("hero_image_url")
+  // Curated property selections referenced by slug (editorial; tolerates removal).
+  chosenSlugs  String[] @map("chosen_slugs")
+  // Open-ended bag of fixed-section tile links/images.
+  tileLinks    Json?    @map("tile_links")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("home_content")
+}
+
+// Cached FX rate per currency pair (one current row per pair, upserted).
+model FxRate {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  base      Currency
+  quote     Currency
+  value     Decimal  @db.Decimal(18, 6)
+  // Origin of the rate, e.g. "CBR".
+  source    String
+  fetchedAt DateTime @map("fetched_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([base, quote], map: "fx_rates_base_quote_key")
+  @@map("fx_rates")
+}

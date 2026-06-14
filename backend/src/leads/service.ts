@@ -1,0 +1,206 @@
+import type { CreateLeadPayload, LeadListQuery, UpdateLeadPayload } from '@dune/contracts'
+
+import type { DbClient } from '../db'
+import { AppError } from '../http/errors'
+import { Prisma, type $Enums } from '../generated/prisma/client'
+import { BitrixAdapter, type BitrixSender, type ResponsibleManager } from './bitrix'
+import { toLeadDto } from './serializer'
+import { TelegramNotifier, type TelegramSender } from './telegram'
+
+// Same phone + same object within this window is treated as a re-submit (double
+// click / "did it go through?") and collapsed onto the first lead.
+const DEDUPE_WINDOW_MS = 10 * 60 * 1000
+
+type LeadServiceDeps = {
+  // Injectable transports keep delivery deterministic in tests.
+  telegramSender?: TelegramSender
+  bitrixSender?: BitrixSender
+}
+
+export class LeadService {
+  constructor(
+    private readonly db: DbClient,
+    private readonly deps: LeadServiceDeps = {},
+  ) {}
+
+  async create(payload: CreateLeadPayload) {
+    const propertyId = payload.propertyId ?? null
+
+    const existing = await this.db.lead.findFirst({
+      where: {
+        phone: payload.phone,
+        propertyId,
+        createdAt: { gt: new Date(Date.now() - DEDUPE_WINDOW_MS) },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    // Idempotent for the common case (double-click / "did it send?"): re-submits
+    // get the success screen without a second lead or a duplicate Telegram ping.
+    // Best-effort only — two truly simultaneous requests can both miss this read
+    // and create two leads; that race is rare and tolerable (a manager dedupes),
+    // so we avoid the cost/awkwardness of a time-bucketed unique constraint.
+    if (existing) return toLeadDto(existing)
+
+    const lead = await this.db.lead.create({
+      data: {
+        name: payload.name,
+        phone: payload.phone,
+        email: payload.email ?? null,
+        message: payload.message ?? null,
+        source: payload.source ?? null,
+        direction: payload.direction ?? null,
+        propertyId,
+        // Consent is validated as literal `true` by the contract; stamp the time.
+        consentAt: new Date(),
+      },
+    })
+
+    // Delivery runs after the success screen — never block the visitor on it.
+    void this.deliver(lead.id).catch(() => {})
+
+    return toLeadDto(lead)
+  }
+
+  // Pushes a lead to the configured channels and records per-channel delivery
+  // flags. Safe to call repeatedly; already-delivered channels are skipped.
+  async deliver(leadId: string): Promise<void> {
+    const lead = await this.db.lead.findUnique({ where: { id: leadId } })
+    if (!lead) return
+
+    const settings = await this.db.siteSettings.findUnique({ where: { id: 'singleton' } })
+    const objectLine = await this.objectLine(lead.propertyId)
+    const manager = await this.responsibleManager(lead.propertyId, lead.direction)
+
+    const notifier = new TelegramNotifier(
+      { botToken: settings?.telegramBotToken ?? null, chatId: settings?.telegramChatId ?? null },
+      this.deps.telegramSender,
+    )
+    if (notifier.configured && !lead.telegramSentAt) {
+      if (await notifier.notify(lead, objectLine)) {
+        await this.db.lead.update({ where: { id: lead.id }, data: { telegramSentAt: new Date() } })
+      }
+    }
+
+    const bitrix = new BitrixAdapter(
+      { enabled: settings?.bitrixEnabled ?? false, webhookUrl: settings?.bitrixWebhookUrl ?? null },
+      this.deps.bitrixSender,
+    )
+    if (bitrix.enabled && !lead.bitrixSentAt) {
+      if (await bitrix.deliver(lead, objectLine, manager)) {
+        await this.db.lead.update({ where: { id: lead.id }, data: { bitrixSentAt: new Date() } })
+      }
+    }
+  }
+
+  // Retries delivery for recent leads whose channels never got the flag — covers
+  // the gap where in-request delivery lost the work (process crash, or the
+  // notifier was down through all retries). Driven by the `leads:redeliver` cron.
+  // `retried` counts leads selected for a retry pass, not successful deliveries:
+  // a still-failing channel keeps its flag null and gets picked up again next tick.
+  async redeliverPending(windowHours = 48): Promise<{ retried: number }> {
+    const since = new Date(Date.now() - windowHours * 60 * 60 * 1000)
+
+    // Only retry on channels that are actually configured. A disabled channel's
+    // flag stays null forever, so keying on it would re-scan the whole window
+    // every tick. We mirror deliver()'s enablement checks so a lead is picked up
+    // iff a *configured* channel still hasn't been delivered — this also covers
+    // the dual-channel case where Telegram succeeded but Bitrix failed.
+    const settings = await this.db.siteSettings.findUnique({ where: { id: 'singleton' } })
+    const orClauses: Prisma.LeadWhereInput[] = []
+    if (settings?.telegramBotToken && settings?.telegramChatId) {
+      orClauses.push({ telegramSentAt: null })
+    }
+    if (settings?.bitrixEnabled && settings?.bitrixWebhookUrl) {
+      orClauses.push({ bitrixSentAt: null })
+    }
+    if (orClauses.length === 0) return { retried: 0 }
+
+    const pending = await this.db.lead.findMany({
+      where: {
+        createdAt: { gt: since },
+        status: { not: 'SPAM' },
+        OR: orClauses,
+      },
+      select: { id: true },
+    })
+
+    for (const { id } of pending) {
+      await this.deliver(id).catch(() => {})
+    }
+    return { retried: pending.length }
+  }
+
+  private async objectLine(propertyId: string | null): Promise<string | null> {
+    if (!propertyId) return null
+    const property = await this.db.property.findUnique({
+      where: { id: propertyId },
+      select: { title: true, slug: true },
+    })
+    return property ? `${property.title} (/${property.slug})` : null
+  }
+
+  // Routes a lead to the right person: the object's personal manager mirrored
+  // from QuickDeal (`assigned`), falling back to the active direction manager.
+  // Used to stamp the responsible manager onto the Bitrix lead (§7, §10).
+  private async responsibleManager(
+    propertyId: string | null,
+    direction: $Enums.PropertyDirection | null,
+  ): Promise<ResponsibleManager | null> {
+    let resolvedDirection = direction
+
+    if (propertyId) {
+      const property = await this.db.property.findUnique({
+        where: { id: propertyId },
+        select: { managerName: true, managerPhone: true, direction: true },
+      })
+      if (property?.managerName) {
+        return { name: property.managerName, phone: property.managerPhone }
+      }
+      resolvedDirection = property?.direction ?? resolvedDirection
+    }
+
+    if (resolvedDirection) {
+      const manager = await this.db.manager.findFirst({
+        where: { direction: resolvedDirection, active: true },
+        select: { name: true, phone: true },
+      })
+      if (manager) return { name: manager.name, phone: manager.phone }
+    }
+
+    return null
+  }
+
+  async list(query: LeadListQuery) {
+    const where: Prisma.LeadWhereInput = {}
+    if (query.status) where.status = query.status
+    if (query.direction) where.direction = query.direction
+
+    const skip = (query.page - 1) * query.limit
+    const [items, total] = await this.db.$transaction([
+      this.db.lead.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip, take: query.limit }),
+      this.db.lead.count({ where }),
+    ])
+
+    return {
+      items: items.map(toLeadDto),
+      total,
+      page: query.page,
+      limit: query.limit,
+      pageCount: Math.max(1, Math.ceil(total / query.limit)),
+    }
+  }
+
+  async updateStatus(id: string, payload: UpdateLeadPayload) {
+    const lead = await this.db.lead
+      .update({ where: { id }, data: payload })
+      .catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new AppError(404, 'NOT_FOUND', 'Lead not found')
+        }
+        throw error
+      })
+
+    return toLeadDto(lead)
+  }
+}

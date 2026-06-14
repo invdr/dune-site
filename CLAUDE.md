@@ -44,43 +44,24 @@
 - In Codex shell sessions, do not assume JS tooling is on `PATH`. For `node`, `npm`, and `bun`, prefer `PATH="/opt/homebrew/bin:$HOME/.bun/bin:$PATH"`.
 - Prefer existing utilities, framework APIs, and the standard library before adding dependencies.
 - Do not add new production or tooling dependencies without explicit user approval unless the user directly requested that dependency by name.
-- Before using a new library, inspect the relevant `package.json`. Prefer installed libraries such as Zod, TanStack Query, TanStack Form, Hono, Prisma, Expo, and `@dune/contracts`.
+- Before using a new library, inspect the relevant `package.json`. Prefer installed libraries such as Zod, TanStack Query, TanStack Form, Hono, Prisma, and `@dune/contracts`.
 - If a missing dependency clearly improves the product outcome, explain the user-visible reason, maintenance/security impact, and ask before installing.
 - Before using framework-specific APIs, check current official docs, local package types, or existing examples.
-- For E2E, use Playwright for web and Maestro for mobile. Read `docs/TESTING.md` before adding flows.
-- For mobile E2E selectors, prefer stable React Native `testID` constants from `mobile/src/constants/testIds.ts`; avoid coordinates and fragile text selectors.
-- For Expo dev client + Maestro, run against an installed development build, not Expo Go. Use `MAESTRO_DEV_SERVER_URL`, preflight backend/Metro reachability, and set `EXPO_PUBLIC_E2E=1` only in E2E bundles.
-- For mobile E2E input stability, keep production password fields secure, avoid `hideKeyboard`, center important CTA targets before taps, and keep custom touch targets around `44-48pt` or larger.
-- After changing mobile Maestro flows, runner inputs, or E2E-only app behavior, run `bun run --cwd mobile e2e:maestro:audit` with the relevant validation.
+- For E2E, use Playwright (web + Astro storefront). Read `docs/TESTING.md` before adding flows.
 
 ## Project Context
 
-- Use `README.md` as the source of truth for first-run repository download, bootstrap, and product intake instructions.
+- Use `README.md` and `docs/` as the source of truth for setup, architecture, and product context (`docs/PRD.md` for product decisions, `docs/TASKS.md` for the work plan).
 - Keep durable project choices in README files and docs, not in this agent file.
 - Infrastructure, deployment, storage, local database, testing runbooks, and provider-specific choices live in `README.md` and `docs/`.
 - When a surface is deferred, prefer a short note in that surface's README over extra agent instructions.
 - Prefer a monolithic backend. Do not split into microservices unless the product has a concrete operational need.
 - For real-time infrastructure decisions, follow `docs/ARCHITECTURE.md` and `docs/DEPLOYMENT.md`.
 
-## Bootstrap-Only Instructions
-
-<!-- BOOTSTRAP_ONLY_START -->
-This block exists only for fresh installs from the template. If this repository has not been initialized for a real project yet:
-
-- Read `README.md`, especially `Agent Repo Download Instructions`, before setup or feature work.
-- Follow that README section for product intake, active/deferred surfaces, repository remote handling, Docker/PostgreSQL setup, deployment scope, Expo/EAS owner setup, and mobile Maestro dev-client setup when mobile E2E is active.
-- Record durable project choices in README files and docs, not in `AGENTS.md` or `CLAUDE.md`.
-- After first-run setup is complete, delete this entire `Bootstrap-Only Instructions` block from both `AGENTS.md` and `CLAUDE.md`.
-<!-- BOOTSTRAP_ONLY_END -->
-
 ## Git And Remote Policy
 
 - Inspect `git remote -v` before any branch, commit, push, or PR workflow.
-- Treat this repository as a template for a new project by default, not as a pull request source for the template.
-- If `origin` points to the template repository and the user has not explicitly said they are contributing to the template, remove it with `git remote remove origin`.
-- Add the user's own GitHub repository as `origin` only when the user provides a URL or asks to create/publish the project.
-- If no destination is chosen, leave the project without `origin` and report that publishing is not configured.
-- Do not push, open PRs, or configure deployment from the template remote by accident.
+- Develop on the designated feature branch; do not push to the default branch without explicit permission.
 
 ## Task Modes
 

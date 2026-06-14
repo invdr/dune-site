@@ -1,0 +1,301 @@
+---
+export const prerender = false
+
+import Base from '../../layouts/Base.astro'
+import LeadForm from '../../components/LeadForm.astro'
+import { getProperty, getPropertyContact, getPublicSettings, listProperties } from '../../lib/api'
+import { cardHtml, placeholderFor } from '../../lib/card'
+import { metaByDirection, PROPERTY_TYPES } from '../../lib/directions'
+import {
+  areaLabel,
+  commercialKindLabel,
+  landUseLabel,
+  mainPrice,
+  perMeter,
+  propertyFacts,
+  roomsLabel,
+  secondaryLines,
+} from '../../lib/format'
+import { ICONS } from '../../lib/icons'
+import { phHtml } from '../../lib/placeholder'
+
+const { slug } = Astro.params
+const property = slug ? await getProperty(slug) : null
+
+if (!property) {
+  return Astro.rewrite('/404')
+}
+
+const [contact, settings, similarResult] = await Promise.all([
+  getPropertyContact(property.slug),
+  getPublicSettings(),
+  listProperties({ direction: property.direction, limit: 4, sort: 'newest' }),
+])
+
+const meta = metaByDirection(property.direction)
+const ph = placeholderFor(property)
+
+// Gallery: main photo + up to 3 thumbs, padded with branded placeholders.
+const photos = property.photos
+const galleryCells: string[] = []
+for (let i = 0; i < 4; i++) {
+  const overlay =
+    i === 0
+      ? `<div class="card__tags">${property.badges
+          .slice(0, 3)
+          .map((b, j) => `<span class="tag tag--${j === 0 ? 'bordo' : 'sand'}">${b}</span>`)
+          .join('')}</div>`
+      : i === 3 && photos.length > 1
+        ? `<button class="btn btn--light btn--sm gallery__more" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>Все фото — ${photos.length}</button>`
+        : ''
+  galleryCells.push(
+    phHtml({ kind: ph.kind, tone: ph.tone, sun: ph.sun && i === 0, photo: photos[i] ?? null, eager: i === 0, overlay }),
+  )
+}
+const galleryHtml = galleryCells[0] + `<div class="gallery__thumbs">${galleryCells.slice(1).join('')}</div>`
+
+const typeLabel = PROPERTY_TYPES.find((t) => t.value === property.type)?.label ?? 'Объект'
+const facts = propertyFacts(property)
+
+const priceMain = mainPrice(property.pricing)
+const priceExtra = secondaryLines(property.pricing)
+const perM = perMeter(property)
+
+const contactName = contact?.name ?? 'Менеджер DUNE'
+const initials = contactName
+  .split(/\s+/)
+  .map((w) => w[0])
+  .join('')
+  .slice(0, 2)
+  .toUpperCase()
+const contactPhone = contact?.phone ?? settings.companyPhone
+const contactTel = contactPhone ? `tel:${contactPhone.replace(/[^+\d]/g, '')}` : null
+
+const similar = similarResult.items.filter((p) => p.slug !== property.slug).slice(0, 3)
+
+// Yandex map widget (keyless iframe). Yandex uses ll/pt as "lon,lat".
+const hasPoint = property.lat != null && property.lng != null
+const mapSrc = hasPoint
+  ? `https://yandex.ru/map-widget/v1/?ll=${property.lng},${property.lat}&z=16&pt=${property.lng},${property.lat},pm2rdm`
+  : null
+
+const locText = [property.complex, property.district, property.city].filter(Boolean).join(', ')
+const descIntro: Record<string, string> = {
+  NEW: 'Современная квартира в одном из востребованных жилых комплексов Грозного с развитой инфраструктурой и закрытой территорией.',
+  RESALE: 'Готовая к проживанию недвижимость с честной историей и полным пакетом документов. Юридическая проверка и сопровождение — на стороне DUNE.',
+  DUBAI: 'Инвестиционный объект в премиальной локации Дубая с привлекательной доходностью и планом оплаты от застройщика.',
+  SAUDI: 'Объект на быстрорастущем рынке Саудовской Аравии в рамках программы Vision 2030 — перспективная локация для долгосрочных инвестиций.',
+}
+function typeDetail(p: NonNullable<typeof property>): string {
+  switch (p.type) {
+    case 'LAND': {
+      const use = landUseLabel(p.landUse)
+      return `Земельный участок ${areaLabel(p)}${use ? `, назначение — ${use}` : ''}.`
+    }
+    case 'HOUSE':
+    case 'TOWNHOUSE':
+      return `${typeLabel} площадью ${p.area} м²${p.rooms > 0 ? `, ${p.rooms} комн.` : ''}.`
+    case 'COMMERCIAL': {
+      const kind = commercialKindLabel(p.commercialKind)
+      return `Коммерческое помещение площадью ${p.area} м²${kind ? `, ${kind.toLowerCase()}` : ''}.`
+    }
+    default:
+      return `${roomsLabel(p.rooms).toLowerCase()} планировка площадью ${p.area} м².`
+  }
+}
+const fallbackDescription = `${descIntro[property.direction]} ${typeDetail(property)}`
+// Real feed text when present, otherwise the synthetic per-type intro.
+const description = property.description ?? fallbackDescription
+const descParagraphs = description.split(/\n+/).map((p) => p.trim()).filter(Boolean)
+const attributes = property.attributes
+---
+
+<Base
+  title={`${property.title} — DUNE Real Estate`}
+  description={`${property.title}. ${locText}. ${priceMain}.`}
+  active={meta.key}
+  image={photos[0] ?? '/assets/og-cover.jpg'}
+  skipTarget="#pdp"
+  companyPhone={settings.companyPhone}
+  companyContact={settings.companyContact}
+>
+  <main class="pdp container" id="pdp">
+    <div class="pdp__crumbs">
+      <a href="/">Главная</a><span>/</span>
+      <a href="/catalog">Каталог</a><span>/</span>
+      <a href={`/catalog?dir=${meta.key}`}>{meta.label}</a><span>/</span>
+      <span class="crumbs__current">{property.title}</span>
+    </div>
+
+    <div class="gallery" id="gallery" set:html={galleryHtml}></div>
+
+    {photos.length > 0 && (
+      <div class="lbox" id="lightbox" hidden data-photos={JSON.stringify(photos)}>
+        <button class="lbox__close" type="button" aria-label="Закрыть">&times;</button>
+        <button class="lbox__nav lbox__prev" type="button" aria-label="Предыдущее фото">&lsaquo;</button>
+        <img class="lbox__img" src={photos[0]} alt={property.title} />
+        <button class="lbox__nav lbox__next" type="button" aria-label="Следующее фото">&rsaquo;</button>
+        <div class="lbox__count"><span id="lboxCur">1</span> / {photos.length}</div>
+      </div>
+    )}
+
+    <div class="pdp__layout">
+      <div class="pdp__content">
+        <div class="chips">
+          {property.badges.map((b, i) => (
+            <span class={`tag tag--${i === 0 ? 'bordo' : 'sand'}`}>{b}</span>
+          ))}
+        </div>
+        <h1 class="pdp__title">{property.title}</h1>
+        <div class="pdp__loc"><Fragment set:html={ICONS.pin} /><span>{locText}</span></div>
+
+        <div class="pdp__keyfacts">
+          {facts.map((f) => (
+            <div class="kf"><b>{f.b}</b><span>{f.s}</span></div>
+          ))}
+        </div>
+
+        {attributes.length > 0 && (
+          <>
+            <h2 class="block-t">Характеристики</h2>
+            <dl class="pdp__specs">
+              {attributes.map((a) => (
+                <div class="spec"><dt>{a.label}</dt><dd>{a.value}</dd></div>
+              ))}
+            </dl>
+          </>
+        )}
+
+        <h2 class="block-t">Об объекте</h2>
+        {descParagraphs.map((p) => (
+          <p class="pdp__desc">{p}</p>
+        ))}
+
+        {property.features.length > 0 && (
+          <>
+            <h2 class="block-t">Что входит</h2>
+            <ul class="amenities ul">
+              {property.features.map((f) => (
+                <li><Fragment set:html={ICONS.check} /><span>{f}</span></li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        <h2 class="block-t">Расположение</h2>
+        <div class="map-stub" id="pdpMap">
+          {mapSrc ? (
+            <iframe src={mapSrc} loading="lazy" title={`Карта: ${property.city}`} allowfullscreen></iframe>
+          ) : (
+            <div class="pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.6"></circle></svg></div>
+          )}
+        </div>
+        <p class="muted pdp__map-note">
+          {locText}. {hasPoint ? 'Точка на карте — расположение объекта.' : 'Точный адрес сообщит менеджер.'}
+        </p>
+      </div>
+
+      <aside class="pdp__aside">
+        <div class="price-card">
+          <div class="price-card__price">{priceMain}</div>
+          {perM && <div class="price-card__permeter">{perM}</div>}
+          {priceExtra.length > 0 && (
+            <div class="price-card__permeter price-card__permeter--extra">{priceExtra.join(' · ')}</div>
+          )}
+          {property.installment && (
+            <div class="price-card__inst">
+              <Fragment set:html={ICONS.wallet} />
+              <div>
+                <b>Рассрочка 0%</b>
+                <span>от застройщика — точные условия уточняйте у менеджера</span>
+              </div>
+            </div>
+          )}
+          <a class="btn btn--primary btn--block" href="#lead">Оставить заявку</a>
+          {contactTel && <a class="btn btn--ghost btn--block" href={contactTel}>Заказать звонок</a>}
+          <button class="btn btn--ghost btn--block" type="button" data-fav={property.slug} aria-pressed="false">
+            <Fragment set:html={ICONS.heart} /> В избранное
+          </button>
+        </div>
+
+        <div class="agent">
+          {contact?.photo ? (
+            <img class="agent__ava" src={contact.photo} alt={contactName} />
+          ) : (
+            <div class="agent__ava">{initials}</div>
+          )}
+          <div class="agent__info">
+            <b>{contactName}</b>
+            <span>{contactPhone ?? `Эксперт DUNE — ${meta.label}`}</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="section lead-sec" id="lead">
+      <div class="container lead-grid">
+        <div class="fade-up">
+          <span class="eyebrow eyebrow--sand">Заявка по объекту</span>
+          <h2 class="h2" set:html={'Заинтересовал объект? <b>Свяжемся с вами</b>'}></h2>
+          <p class="lead">Оставьте заявку — менеджер уточнит детали по этому объекту и пришлёт похожие варианты под ваш бюджет.</p>
+        </div>
+        <LeadForm
+          source={`property:${property.slug}`}
+          heading="Узнать об объекте"
+          sub="Менеджер ответит в течение 15 минут"
+          direction={property.direction}
+          propertyId={property.id}
+        />
+      </div>
+    </section>
+
+    {similar.length > 0 && (
+      <section class="section--tight">
+        <div class="sec-head">
+          <div class="sec-head__txt">
+            <span class="eyebrow">Похожие объекты</span>
+            <h2 class="h2" set:html={'Ещё в этом <b>направлении</b>'}></h2>
+          </div>
+          <a class="link-more hide-mobile" href={`/catalog?dir=${meta.key}`}>Смотреть все <Fragment set:html={ICONS.arrow} /></a>
+        </div>
+        <div class="cards-row" set:html={similar.map((p) => cardHtml(p)).join('')}></div>
+      </section>
+    )}
+  </main>
+</Base>
+
+<script>
+  import { initGallery } from '../../scripts/gallery'
+  initGallery()
+</script>
+
+<style>
+  .pdp__specs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+    margin: 0 0 10px;
+  }
+  .pdp__specs .spec {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line, #ece7df);
+    font-size: 15px;
+  }
+  .pdp__specs dt {
+    color: var(--muted, #8a8175);
+  }
+  .pdp__specs dd {
+    margin: 0;
+    text-align: right;
+    font-weight: 600;
+    color: var(--ink, #2b2723);
+  }
+  @media (max-width: 640px) {
+    .pdp__specs {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

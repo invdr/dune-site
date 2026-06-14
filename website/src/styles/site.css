@@ -1,0 +1,129 @@
+/* ============================================================
+   DUNE website — additions on top of the ported design system.
+   Kept separate from dune.css/components.css (the design reference) so the
+   visual baseline stays a faithful copy and our extensions are auditable.
+   ============================================================ */
+
+/* header favourites indicator */
+.header-fav {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-sm);
+  color: rgba(255, 255, 255, 0.85);
+  transition: 0.25s var(--ease);
+}
+.header-fav:hover {
+  color: #fff;
+}
+.header-fav svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+.header-fav__count {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 100px;
+  background: var(--sand);
+  color: var(--bordo);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .header-fav {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* consent block in the lead form */
+.lead-consent-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.lead-consent-row input[type='checkbox'] {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: var(--bordo);
+  cursor: pointer;
+}
+.lead-consent-row label {
+  font-size: 12px;
+  color: var(--ink-50);
+  line-height: 1.5;
+}
+.lead-consent-row a {
+  color: var(--bordo);
+  text-decoration: underline;
+}
+/* visually-hidden honeypot — off-screen, untabbable, hidden from AT */
+.hp-field {
+  position: absolute !important;
+  left: -9999px !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+[data-lead-error] {
+  margin-top: 4px;
+}
+
+/* favourites page */
+.fav-empty {
+  text-align: center;
+  padding: 72px 20px;
+  color: var(--ink-50);
+}
+.fav-empty b {
+  display: block;
+  font-size: 20px;
+  color: var(--ink);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.fav-empty .btn {
+  margin-top: 16px;
+}
+.fav-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(16px, 1.8vw, 26px);
+}
+@media (max-width: 1024px) {
+  .fav-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 620px) {
+  .fav-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* small loading shimmer for client-injected grids */
+.is-loading-cards {
+  min-height: 200px;
+  position: relative;
+}
+.is-loading-cards::after {
+  content: 'Загрузка…';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-50);
+  font-size: 14px;
+}

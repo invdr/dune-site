@@ -1,0 +1,39 @@
+---
+import Base from '../layouts/Base.astro'
+
+// Static shell: favourites live in localStorage, so the list is populated
+// client-side. No SEO value in the list itself, so prerendering is fine.
+---
+
+<Base
+  title="Избранное — DUNE Real Estate"
+  description="Сохранённые объекты недвижимости DUNE: новостройки, вторичка, Дубай и Саудовская Аравия."
+>
+  <main id="main">
+    <section class="page-head">
+      <div class="container">
+        <div class="crumbs">
+          <a href="/">Главная</a><span>/</span>
+          <span class="crumbs__current">Избранное</span>
+        </div>
+        <h1 set:html={'Избранные <b>объекты</b>'}></h1>
+        <p class="page-head__sub">Сохранённые объекты хранятся в этом браузере. Поделиться можно ссылкой на объект.</p>
+      </div>
+    </section>
+
+    <section class="section--tight container">
+      <div class="fav-grid" id="favGrid" hidden></div>
+      <div class="fav-empty" id="favEmpty" hidden>
+        <b>Пока пусто</b>
+        <p class="muted">Нажимайте на сердечко в карточке объекта — он появится здесь.</p>
+        <a class="btn btn--ghost btn--sm" href="/catalog">Перейти в каталог</a>
+      </div>
+      <div class="is-loading-cards" id="favLoading"></div>
+    </section>
+  </main>
+
+  <script>
+    import { initFavoritesPage } from '../scripts/favoritesPage'
+    initFavoritesPage()
+  </script>
+</Base>

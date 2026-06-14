@@ -1,19 +1,66 @@
 import {
   apiErrorSchema,
   authResponseSchema,
+  bulkCreateComplexesResultSchema,
+  complexListResponseSchema,
+  complexResponseSchema,
+  createComplexSchema,
+  createManagerSchema,
+  createPropertySchema,
+  createUploadUrlSchema,
+  homeContentResponseSchema,
+  leadListResponseSchema,
+  leadResponseSchema,
   loginRequestSchema,
   logoutRequestSchema,
+  managerListResponseSchema,
+  managerResponseSchema,
   meResponseSchema,
+  presignedUploadResponseSchema,
+  propertyListResponseSchema,
+  propertyResponseSchema,
   refreshRequestSchema,
   refreshResponseSchema,
   registerRequestSchema,
+  siteSettingsResponseSchema,
+  updateHomeContentSchema,
+  updateLeadSchema,
+  updateComplexSchema,
+  updateManagerSchema,
+  updatePropertySchema,
+  updateSiteSettingsSchema,
+  type AdminComplexListQuery,
+  type AdminPropertyListQuery,
   type AuthResponse,
+  type BulkCreateComplexesResult,
+  type ComplexListResponse,
+  type ComplexResponse,
+  type CreateComplexRequest,
+  type CreateManagerRequest,
+  type CreatePropertyRequest,
+  type UpdateComplexRequest,
+  type CreateUploadUrlRequest,
+  type HomeContentResponse,
+  type LeadListQuery,
+  type LeadListResponse,
+  type LeadResponse,
   type LoginRequest,
   type LogoutRequest,
+  type ManagerListResponse,
+  type ManagerResponse,
   type MeResponse,
+  type PresignedUploadResponse,
+  type PropertyListResponse,
+  type PropertyResponse,
   type RefreshRequest,
   type RefreshResponse,
   type RegisterRequest,
+  type SiteSettingsResponse,
+  type UpdateHomeContentRequest,
+  type UpdateLeadRequest,
+  type UpdateManagerRequest,
+  type UpdatePropertyRequest,
+  type UpdateSiteSettingsRequest,
 } from '@dune/contracts'
 import type { z } from 'zod'
 
@@ -26,11 +73,23 @@ type ApiClientOptions = {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
   auth?: boolean
   retryOnUnauthorized?: boolean
   accessTokenOverride?: string
+}
+
+// Drops undefined entries so optional admin filters never serialize as
+// "?status=undefined". Values are coerced to strings for the query string.
+function buildQuery(params: Record<string, unknown>): string {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue
+    search.set(key, String(value))
+  }
+  const query = search.toString()
+  return query ? `?${query}` : ''
 }
 
 export class ApiRequestError extends Error {
@@ -82,6 +141,165 @@ export class ApiClient {
 
   me(): Promise<MeResponse> {
     return this.request('/api/auth/me', meResponseSchema, {
+      auth: true,
+    })
+  }
+
+  // --- Admin: properties ---
+
+  listProperties(query: Partial<AdminPropertyListQuery> = {}): Promise<PropertyListResponse> {
+    return this.request(`/api/admin/properties${buildQuery(query)}`, propertyListResponseSchema, {
+      auth: true,
+    })
+  }
+
+  getProperty(id: string): Promise<PropertyResponse> {
+    return this.request(`/api/admin/properties/${id}`, propertyResponseSchema, { auth: true })
+  }
+
+  createProperty(input: CreatePropertyRequest): Promise<PropertyResponse> {
+    const payload = createPropertySchema.parse(input)
+    return this.request('/api/admin/properties', propertyResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  updateProperty(id: string, input: UpdatePropertyRequest): Promise<PropertyResponse> {
+    const payload = updatePropertySchema.parse(input)
+    return this.request(`/api/admin/properties/${id}`, propertyResponseSchema, {
+      method: 'PUT',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  async deleteProperty(id: string): Promise<void> {
+    await this.rawRequest(`/api/admin/properties/${id}`, { method: 'DELETE', auth: true })
+  }
+
+  // --- Admin: complexes (ЖК) ---
+
+  listComplexes(query: Partial<AdminComplexListQuery> = {}): Promise<ComplexListResponse> {
+    return this.request(`/api/admin/complexes${buildQuery(query)}`, complexListResponseSchema, {
+      auth: true,
+    })
+  }
+
+  getComplex(id: string): Promise<ComplexResponse> {
+    return this.request(`/api/admin/complexes/${id}`, complexResponseSchema, { auth: true })
+  }
+
+  createComplex(input: CreateComplexRequest): Promise<ComplexResponse> {
+    const payload = createComplexSchema.parse(input)
+    return this.request('/api/admin/complexes', complexResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  updateComplex(id: string, input: UpdateComplexRequest): Promise<ComplexResponse> {
+    const payload = updateComplexSchema.parse(input)
+    return this.request(`/api/admin/complexes/${id}`, complexResponseSchema, {
+      method: 'PUT',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  async deleteComplex(id: string): Promise<void> {
+    await this.rawRequest(`/api/admin/complexes/${id}`, { method: 'DELETE', auth: true })
+  }
+
+  bulkCreateComplexes(): Promise<BulkCreateComplexesResult> {
+    return this.request('/api/admin/complexes/bulk', bulkCreateComplexesResultSchema, {
+      method: 'POST',
+      auth: true,
+    })
+  }
+
+  // --- Admin: leads ---
+
+  listLeads(query: Partial<LeadListQuery> = {}): Promise<LeadListResponse> {
+    return this.request(`/api/admin/leads${buildQuery(query)}`, leadListResponseSchema, {
+      auth: true,
+    })
+  }
+
+  updateLead(id: string, input: UpdateLeadRequest): Promise<LeadResponse> {
+    const payload = updateLeadSchema.parse(input)
+    return this.request(`/api/admin/leads/${id}`, leadResponseSchema, {
+      method: 'PATCH',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  // --- Admin: managers ---
+
+  listManagers(): Promise<ManagerListResponse> {
+    return this.request('/api/admin/managers', managerListResponseSchema, { auth: true })
+  }
+
+  createManager(input: CreateManagerRequest): Promise<ManagerResponse> {
+    const payload = createManagerSchema.parse(input)
+    return this.request('/api/admin/managers', managerResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  updateManager(id: string, input: UpdateManagerRequest): Promise<ManagerResponse> {
+    const payload = updateManagerSchema.parse(input)
+    return this.request(`/api/admin/managers/${id}`, managerResponseSchema, {
+      method: 'PUT',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  async deleteManager(id: string): Promise<void> {
+    await this.rawRequest(`/api/admin/managers/${id}`, { method: 'DELETE', auth: true })
+  }
+
+  // --- Admin: site settings + home content ---
+
+  getSettings(): Promise<SiteSettingsResponse> {
+    return this.request('/api/admin/settings', siteSettingsResponseSchema, { auth: true })
+  }
+
+  updateSettings(input: UpdateSiteSettingsRequest): Promise<SiteSettingsResponse> {
+    const payload = updateSiteSettingsSchema.parse(input)
+    return this.request('/api/admin/settings', siteSettingsResponseSchema, {
+      method: 'PUT',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  getHomeContent(): Promise<HomeContentResponse> {
+    return this.request('/api/admin/home', homeContentResponseSchema, { auth: true })
+  }
+
+  updateHomeContent(input: UpdateHomeContentRequest): Promise<HomeContentResponse> {
+    const payload = updateHomeContentSchema.parse(input)
+    return this.request('/api/admin/home', homeContentResponseSchema, {
+      method: 'PUT',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  // --- Admin: photo uploads (presigned PUT to object storage) ---
+
+  createUploadUrl(input: CreateUploadUrlRequest): Promise<PresignedUploadResponse> {
+    const payload = createUploadUrlSchema.parse(input)
+    return this.request('/api/admin/uploads', presignedUploadResponseSchema, {
+      method: 'POST',
+      body: payload,
       auth: true,
     })
   }

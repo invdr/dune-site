@@ -1,0 +1,27 @@
+---
+// Server-rendered so it can be reached via `Astro.rewrite('/404')` from other
+// SSR routes (a prerendered 404 isn't available to the runtime rewrite).
+export const prerender = false
+
+import Base from '../layouts/Base.astro'
+
+// Set a real 404 status (works for SSR responses and when reached via rewrite).
+Astro.response.status = 404
+---
+
+<Base title="Страница не найдена — DUNE Real Estate" description="Запрошенная страница не найдена.">
+  <main id="main">
+    <section class="page-head">
+      <div class="container">
+        <h1 set:html={'404 — <b>страница не найдена</b>'}></h1>
+        <p class="page-head__sub">Возможно, объект снят с публикации или ссылка устарела.</p>
+      </div>
+    </section>
+    <section class="section container">
+      <div class="btn-row">
+        <a class="btn btn--primary" href="/">На главную</a>
+        <a class="btn btn--ghost" href="/catalog">Открыть каталог</a>
+      </div>
+    </section>
+  </main>
+</Base>

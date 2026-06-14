@@ -12,6 +12,7 @@ const env: AppEnv = {
   ACCESS_TOKEN_TTL_SECONDS: 60,
   REFRESH_TOKEN_TTL_DAYS: 30,
   COOKIE_SECURE: true,
+  REGISTRATION_ENABLED: false,
   SPACES_UPLOAD_MAX_BYTES: 10 * 1024 * 1024,
   SPACES_UPLOAD_URL_TTL_SECONDS: 900,
   SPACES_DOWNLOAD_URL_TTL_SECONDS: 300,
@@ -51,5 +52,24 @@ describe('auth routes', () => {
 
     expect(untrustedLogout.status).toBe(403)
     expect(untrustedLogoutBody.error.code).toBe('FORBIDDEN')
+  })
+
+  test('refuses public registration when REGISTRATION_ENABLED is off, before touching the database', async () => {
+    const app = createApp({ env, prisma: {} as DbClient })
+
+    const response = await app.request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'intruder@example.com',
+        password: 'a-strong-password',
+        displayName: 'Intruder',
+      }),
+    })
+    const body = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(body.error.code).toBe('FORBIDDEN')
+    expect(body.error.message).toBe('Registration is disabled')
   })
 })

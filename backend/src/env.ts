@@ -43,6 +43,10 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(15 * 60),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   COOKIE_SECURE: booleanStringSchema,
+  // Public self-registration is OFF by default so the admin API cannot be
+  // claimed by anyone who finds the endpoint. Flip to "true" temporarily only
+  // while creating a new staff account, then set it back to "false".
+  REGISTRATION_ENABLED: booleanStringSchema,
   SPACES_REGION: optionalStringSchema,
   SPACES_BUCKET: optionalStringSchema,
   SPACES_ENDPOINT: optionalUrlSchema,
@@ -53,6 +57,11 @@ const envSchema = z.object({
   SPACES_UPLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(15 * 60),
   SPACES_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(5 * 60),
   SPACES_PUBLIC_CACHE_CONTROL: stringWithDefault('public, max-age=31536000, immutable'),
+  // QuickDeal native feed (org-scoped URL) and its secret token. Both optional:
+  // the importer stays idle until configured. The secret lives here, never in
+  // the repo (§14).
+  QUICKDEAL_FEED_URL: optionalUrlSchema,
+  QUICKDEAL_FEED_TOKEN: optionalStringSchema,
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)
