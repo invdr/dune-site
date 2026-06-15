@@ -53,9 +53,12 @@ const locText = [complex.district, complex.city].filter(Boolean).join(', ')
 const headline = complexHeadline(complex)
 
 const keyfacts: { b: string; s: string }[] = []
+const floorsAttr = complex.attributes.find((a) => /этаж/i.test(a.label))
 if (complex.areaFrom != null) keyfacts.push({ b: `от ${complex.areaFrom} м²`, s: 'площадь' })
-if (complex.unitCount > 0) keyfacts.push({ b: String(complex.unitCount), s: 'в продаже' })
+if (complex.pricePerMeterFrom != null || complex.priceFrom != null) keyfacts.push({ b: headline, s: 'цена' })
+if (floorsAttr) keyfacts.push({ b: floorsAttr.value, s: 'этажность' })
 if (complex.delivery) keyfacts.push({ b: complex.delivery, s: 'сдача' })
+if (complex.unitCount > 0) keyfacts.push({ b: String(complex.unitCount), s: 'в продаже' })
 
 const description = complex.description ?? ''
 const descParagraphs = description.split(/\n+/).map((p) => p.trim()).filter(Boolean)

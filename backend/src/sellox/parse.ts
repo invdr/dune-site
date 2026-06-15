@@ -254,15 +254,26 @@ function amenityKeywords(main: string): string[] {
 // The "Характеристики" table — Houzez renders it as
 // `<li><strong>Label:</strong> <span>Value</span></li>` inside the first
 // `.detail-wrap` list. Returns display-ready {label, value} pairs in page order.
+// Sellox's internal SKU ("Артикул") is dropped, and a couple of labels are
+// renamed to clearer wording for the storefront.
+const ATTR_SKIP = new Set(['артикул'])
+const ATTR_LABEL_RENAMES: Record<string, string> = {
+  'статус недв.': 'Статус недвижимости',
+  гаражи: 'Парковка',
+}
+
 function extractAttributes(main: string): PropertyAttribute[] {
   const block = main.match(/<div class="detail-wrap">[\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i)
   if (!block) return []
 
   const attributes: PropertyAttribute[] = []
   for (const m of block[1].matchAll(/<li[^>]*>\s*<strong>([\s\S]*?)<\/strong>([\s\S]*?)<\/li>/gi)) {
-    const label = decodeEntities(stripTags(m[1])).replace(/\s+/g, ' ').replace(/:\s*$/, '').trim()
+    const rawLabel = decodeEntities(stripTags(m[1])).replace(/\s+/g, ' ').replace(/:\s*$/, '').trim()
     const value = decodeEntities(stripTags(m[2])).replace(/\s+/g, ' ').trim()
-    if (!label || !value || label.length > 120 || value.length > 200) continue
+    if (!rawLabel || !value || value.length > 200) continue
+    if (ATTR_SKIP.has(rawLabel.toLowerCase())) continue
+    const label = ATTR_LABEL_RENAMES[rawLabel.toLowerCase()] ?? rawLabel
+    if (label.length > 120) continue
     attributes.push({ label, value })
   }
   return attributes.slice(0, 30)

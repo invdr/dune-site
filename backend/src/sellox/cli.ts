@@ -9,16 +9,18 @@ import { mirrorPhotos } from './photos'
 //   bun src/sellox/cli.ts --limit 5        # only the first 5 pages
 //   bun src/sellox/cli.ts                  # import (create DRAFT, skip existing)
 //   bun src/sellox/cli.ts --update         # also refresh untouched DRAFT rows
+//   bun src/sellox/cli.ts --force          # refresh ALL rows (incl. published)
 //   bun src/sellox/cli.ts --mirror-photos  # copy photos into our own bucket
 
-type Flags = { dryRun: boolean; update: boolean; mirrorPhotos: boolean; limit?: number }
+type Flags = { dryRun: boolean; update: boolean; force: boolean; mirrorPhotos: boolean; limit?: number }
 
 function parseFlags(argv: string[]): Flags {
-  const flags: Flags = { dryRun: false, update: false, mirrorPhotos: false }
+  const flags: Flags = { dryRun: false, update: false, force: false, mirrorPhotos: false }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--dry-run') flags.dryRun = true
     else if (arg === '--update') flags.update = true
+    else if (arg === '--force') flags.force = true
     else if (arg === '--mirror-photos') flags.mirrorPhotos = true
     else if (arg === '--limit') flags.limit = Number.parseInt(argv[(i += 1)] ?? '', 10) || undefined
     else if (arg.startsWith('--limit=')) flags.limit = Number.parseInt(arg.slice('--limit='.length), 10) || undefined
@@ -75,7 +77,7 @@ async function main() {
 
   console.log(
     `sellox import — ${flags.dryRun ? 'DRY RUN (no writes)' : 'LIVE'}` +
-      `${flags.update ? ', updating DRAFT rows' : ''}` +
+      `${flags.force ? ', forcing refresh of ALL rows' : flags.update ? ', updating DRAFT rows' : ''}` +
       `${flags.mirrorPhotos ? ', mirroring photos' : ''}${flags.limit ? `, limit ${flags.limit}` : ''}`,
   )
 
@@ -84,6 +86,7 @@ async function main() {
       fetcher: createPoliteFetcher(),
       dryRun: flags.dryRun,
       update: flags.update,
+      force: flags.force,
       mirrorPhotos: photoMirror,
       limit: flags.limit,
       log: (message) => console.log(message),

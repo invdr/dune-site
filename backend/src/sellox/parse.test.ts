@@ -52,14 +52,15 @@ describe('parseListing — Grozny complex', () => {
     expect(parsed.features).toEqual(['Бассейн', 'Есть рассрочка', 'Школа рядом'])
   })
 
-  test('characteristics table is parsed into label/value attributes', () => {
+  test('characteristics: Артикул hidden, Гаражи→Парковка, Статус недв.→Статус недвижимости', () => {
     expect(parsed.attributes).toEqual([
-      { label: 'Артикул', value: 'PRESTIZH' },
       { label: 'Цена', value: 'от 68,000₽/м²' },
       { label: 'Этажность', value: '18' },
+      { label: 'Парковка', value: 'Есть' },
       { label: 'Тип недвижимости', value: 'Новостройки' },
-      { label: 'Статус недв.', value: 'ЖК в Грозном' },
+      { label: 'Статус недвижимости', value: 'ЖК в Грозном' },
     ])
+    expect(parsed.attributes.some((a) => /артикул/i.test(a.label))).toBe(false)
   })
 
   test('description captures the marketing copy', () => {

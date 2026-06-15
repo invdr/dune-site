@@ -27,6 +27,10 @@ export type ImportOptions = {
   // When true, refresh existing DRAFT complexes instead of skipping them. Never
   // touches a complex that has been published/edited past DRAFT.
   update?: boolean
+  // When true, refresh feed-derived fields on EVERY existing complex regardless
+  // of status, preserving its status and publishedAt. Use to backfill new fields
+  // (e.g. coordinates) into already-published rows.
+  force?: boolean
   mirrorPhotos?: PhotoMirror
   log?: (message: string) => void
 }
@@ -108,12 +112,14 @@ async function importOne(db: DbClient, url: string, options: ImportOptions): Pro
   })
 
   if (existing) {
-    // Only refresh untouched DRAFT rows, and only when asked — published or
-    // hand-edited complexes are the admin's, not the importer's.
-    if (!options.update || existing.status !== 'DRAFT') {
+    // --force refreshes any row; --update refreshes untouched DRAFT rows only;
+    // otherwise published/edited complexes are left to the admin.
+    const mayUpdate = options.force || (options.update && existing.status === 'DRAFT')
+    if (!mayUpdate) {
       return { ...base, action: 'skipped', reason: existing.status === 'DRAFT' ? 'exists (DRAFT)' : `exists (${existing.status})` }
     }
     if (!options.dryRun) {
+      // Never overwrite slug or the row's publication state.
       const { slug: _slug, status: _status, ...refreshable } = payload
       await db.complex.update({ where: { id: existing.id }, data: refreshable })
     }

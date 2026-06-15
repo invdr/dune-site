@@ -34,6 +34,7 @@ export const GROZNY_HTML = `<!doctype html><html><head>
     <li> <strong>Артикул:</strong> <span>PRESTIZH</span> </li>
     <li> <strong>Цена:</strong> <span><span class="price-start">от</span> 68,000₽/м²</span> </li>
     <li> <strong>Этажность:</strong> <span>18</span> </li>
+    <li> <strong>Гаражи:</strong> <span>Есть</span> </li>
     <li class="prop_type"> <strong>Тип недвижимости:</strong> <span>Новостройки</span> </li>
     <li class="prop_status"> <strong>Статус недв.:</strong> <span>ЖК в Грозном</span> </li>
   </ul></div></div>
