@@ -11,6 +11,7 @@
     "start:cron": "bun run prisma:generate && bun src/cron.ts",
     "start:raw": "bun src/index.ts",
     "import:sellox": "bun run prisma:generate && bun src/sellox/cli.ts",
+    "complexes:publish-all": "bun src/complexes/publish-all-cli.ts",
     "build": "bun run prisma:generate && tsc --noEmit",
     "typecheck": "bun run prisma:generate && tsc --noEmit",
     "test": "bun run test:unit && bun run test:integration",
