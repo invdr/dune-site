@@ -14,7 +14,7 @@
     "build": "bun run prisma:generate && tsc --noEmit",
     "typecheck": "bun run prisma:generate && tsc --noEmit",
     "test": "bun run test:unit && bun run test:integration",
-    "test:unit": "bun test src/env.test.ts src/db.test.ts src/contracts.test.ts src/cron.test.ts src/auth/access-tokens.test.ts src/auth/passwords.test.ts src/auth/refresh-tokens.test.ts src/auth/routes.test.ts src/properties/routes.test.ts src/storage/service.test.ts src/storage/routes.test.ts src/currency/pricing.test.ts src/currency/service.test.ts src/currency/cbr.test.ts src/quickdeal/mapper.test.ts src/sellox/parse.test.ts src/leads/telegram.test.ts src/http/rate-limit.test.ts",
+    "test:unit": "bun test src/env.test.ts src/db.test.ts src/contracts.test.ts src/cron.test.ts src/auth/access-tokens.test.ts src/auth/passwords.test.ts src/auth/refresh-tokens.test.ts src/auth/routes.test.ts src/properties/routes.test.ts src/storage/service.test.ts src/storage/routes.test.ts src/currency/pricing.test.ts src/currency/service.test.ts src/currency/cbr.test.ts src/quickdeal/mapper.test.ts src/sellox/parse.test.ts src/sellox/photos.test.ts src/leads/telegram.test.ts src/http/rate-limit.test.ts",
     "test:integration": "bun scripts/test-integration.mjs",
     "smoke:docker": "bun scripts/docker-smoke.mjs",
     "prisma": "prisma",

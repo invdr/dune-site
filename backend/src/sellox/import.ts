@@ -14,6 +14,11 @@ export const SELLOX_SITEMAP_URL = 'https://sellox.ru/property-sitemap.xml'
 // Injectable so tests run offline; the CLI supplies a real, throttled fetcher.
 export type SelloxFetcher = (url: string) => Promise<string>
 
+// Given a complex slug and its remote photo URLs, returns the URLs to persist
+// (e.g. after mirroring into our own bucket). Injected so import.ts stays
+// decoupled from the storage provider and testable offline.
+export type PhotoMirror = (slug: string, urls: string[]) => Promise<string[]>
+
 export type ImportOptions = {
   fetcher: SelloxFetcher
   dryRun?: boolean
@@ -21,6 +26,7 @@ export type ImportOptions = {
   // When true, refresh existing DRAFT complexes instead of skipping them. Never
   // touches a complex that has been published/edited past DRAFT.
   update?: boolean
+  mirrorPhotos?: PhotoMirror
   log?: (message: string) => void
 }
 
@@ -68,6 +74,17 @@ async function importOne(db: DbClient, url: string, options: ImportOptions): Pro
     parsed = parseListing(html, url)
   } catch (error) {
     return { url, slug: slugFromUrl(url), name: '', action: 'failed', reason: message(error) }
+  }
+
+  // Mirror photos into our own storage before persisting, so saved URLs point
+  // at us rather than sellox.ru. A mirror failure must not fail the import — the
+  // mirror itself falls back to the original URL per photo.
+  if (options.mirrorPhotos && parsed.photos.length > 0) {
+    try {
+      parsed = { ...parsed, photos: await options.mirrorPhotos(parsed.slug, parsed.photos) }
+    } catch (error) {
+      options.log?.(`  ! photo mirror failed for ${parsed.slug}, keeping remote URLs — ${message(error)}`)
+    }
   }
 
   let payload

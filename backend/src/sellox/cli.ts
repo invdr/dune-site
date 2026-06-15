@@ -1,5 +1,7 @@
 import { createBackendRuntime } from '../runtime'
-import { importSellox, type SelloxFetcher } from './import'
+import { createStorageServiceFromEnv } from '../storage/service'
+import { importSellox, type PhotoMirror, type SelloxFetcher } from './import'
+import { mirrorPhotos } from './photos'
 
 // Runnable entry for the one-time sellox.ru → Complex migration.
 //
@@ -7,15 +9,17 @@ import { importSellox, type SelloxFetcher } from './import'
 //   bun src/sellox/cli.ts --limit 5        # only the first 5 pages
 //   bun src/sellox/cli.ts                  # import (create DRAFT, skip existing)
 //   bun src/sellox/cli.ts --update         # also refresh untouched DRAFT rows
+//   bun src/sellox/cli.ts --mirror-photos  # copy photos into our own bucket
 
-type Flags = { dryRun: boolean; update: boolean; limit?: number }
+type Flags = { dryRun: boolean; update: boolean; mirrorPhotos: boolean; limit?: number }
 
 function parseFlags(argv: string[]): Flags {
-  const flags: Flags = { dryRun: false, update: false }
+  const flags: Flags = { dryRun: false, update: false, mirrorPhotos: false }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--dry-run') flags.dryRun = true
     else if (arg === '--update') flags.update = true
+    else if (arg === '--mirror-photos') flags.mirrorPhotos = true
     else if (arg === '--limit') flags.limit = Number.parseInt(argv[(i += 1)] ?? '', 10) || undefined
     else if (arg.startsWith('--limit=')) flags.limit = Number.parseInt(arg.slice('--limit='.length), 10) || undefined
   }
@@ -48,9 +52,29 @@ async function main() {
   const flags = parseFlags(Bun.argv.slice(2))
   const runtime = createBackendRuntime()
 
+  // Resolve the photo mirror up front so a misconfigured bucket fails loudly
+  // before any crawling, rather than silently leaving remote URLs in the DB.
+  let photoMirror: PhotoMirror | undefined
+  if (flags.mirrorPhotos && flags.dryRun) {
+    console.log('Note: --dry-run skips photo mirroring (it would write to the bucket).')
+  } else if (flags.mirrorPhotos) {
+    const storage = createStorageServiceFromEnv(runtime.env)
+    if (!storage) {
+      console.error(
+        'Cannot mirror photos: object storage is not configured. Set SPACES_ENDPOINT, ' +
+          'SPACES_REGION, SPACES_BUCKET, SPACES_ACCESS_KEY_ID, SPACES_SECRET_ACCESS_KEY ' +
+          '(and SPACES_CDN_BASE_URL for the public URL base).',
+      )
+      await runtime.close()
+      process.exit(1)
+    }
+    photoMirror = async (slug, urls) => (await mirrorPhotos(storage, slug, urls)).photos
+  }
+
   console.log(
     `sellox import — ${flags.dryRun ? 'DRY RUN (no writes)' : 'LIVE'}` +
-      `${flags.update ? ', updating DRAFT rows' : ''}${flags.limit ? `, limit ${flags.limit}` : ''}`,
+      `${flags.update ? ', updating DRAFT rows' : ''}` +
+      `${flags.mirrorPhotos ? ', mirroring photos' : ''}${flags.limit ? `, limit ${flags.limit}` : ''}`,
   )
 
   try {
@@ -58,6 +82,7 @@ async function main() {
       fetcher: createPoliteFetcher(),
       dryRun: flags.dryRun,
       update: flags.update,
+      mirrorPhotos: photoMirror,
       limit: flags.limit,
       log: (message) => console.log(message),
     })

@@ -50,6 +50,39 @@ describe('StorageService', () => {
     )
   })
 
+  test('putObject uploads bytes and returns the public URL for public objects', async () => {
+    const sent: Array<Record<string, unknown>> = []
+    const fakeS3 = { send: async (command: { input: Record<string, unknown> }) => void sent.push(command.input) }
+    const service = new StorageService(config, fakeS3 as never)
+
+    const result = await service.putObject({
+      key: 'complexes/sellox/zhk-prestizh/01.webp',
+      body: new Uint8Array([1, 2, 3, 4]),
+      contentType: 'image/webp',
+      visibility: 'public',
+    })
+
+    expect(result).toEqual({
+      key: 'complexes/sellox/zhk-prestizh/01.webp',
+      byteSize: 4,
+      publicUrl: 'https://images.example.com/assets/complexes/sellox/zhk-prestizh/01.webp',
+    })
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toMatchObject({
+      Bucket: 'demo-bucket',
+      Key: 'complexes/sellox/zhk-prestizh/01.webp',
+      ContentType: 'image/webp',
+      ACL: 'public-read',
+    })
+  })
+
+  test('putObject rejects bytes larger than the configured limit', async () => {
+    const service = new StorageService({ ...config, uploadMaxBytes: 8 }, { send: async () => undefined } as never)
+    await expect(
+      service.putObject({ key: 'k.png', body: new Uint8Array(16), contentType: 'image/png', visibility: 'public' }),
+    ).rejects.toThrow(AppError)
+  })
+
   test('creates presigned public upload URLs without contacting Spaces', async () => {
     const service = new StorageService({ ...config, cdnBaseUrl: undefined })
     const upload = await service.createUploadUrl({

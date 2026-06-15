@@ -54,6 +54,20 @@ export type PresignedUpload = {
   publicUrl?: string
 }
 
+export type PutObjectInput = {
+  key: string
+  body: Uint8Array
+  contentType: string
+  visibility?: StorageObjectVisibility
+  cacheControl?: string
+}
+
+export type PutObjectResult = {
+  key: string
+  byteSize: number
+  publicUrl?: string
+}
+
 export class StorageService {
   private readonly s3: S3Client
 
@@ -112,6 +126,37 @@ export class StorageService {
       headers,
       contentLength: byteSize,
       expiresAt: expiresAt(expiresInSeconds).toISOString(),
+      ...(visibility === 'public' ? { publicUrl: this.publicUrlForKey(key) } : {}),
+    }
+  }
+
+  // Server-side upload of bytes the backend already holds (e.g. migrating
+  // remote media into our own bucket). Complements the presigned-URL flow used
+  // for direct browser uploads. Returns the public URL for public objects.
+  async putObject(input: PutObjectInput): Promise<PutObjectResult> {
+    const key = assertSafeObjectKey(input.key)
+    const contentType = assertContentType(input.contentType)
+    const byteSize = assertByteSize(input.body.byteLength, this.config.uploadMaxBytes)
+    const visibility = input.visibility ?? 'private'
+    const acl = visibility === 'public' ? 'public-read' : 'private'
+    const cacheControl =
+      input.cacheControl ?? (visibility === 'public' ? this.config.publicCacheControl : undefined)
+
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+        Body: input.body,
+        ContentType: contentType,
+        ContentLength: byteSize,
+        ACL: acl,
+        ...(cacheControl ? { CacheControl: cacheControl } : {}),
+      }),
+    )
+
+    return {
+      key,
+      byteSize,
       ...(visibility === 'public' ? { publicUrl: this.publicUrlForKey(key) } : {}),
     }
   }
