@@ -47,6 +47,7 @@ export const GROZNY_HTML = `<!doctype html><html><head>
   <img src="https://sellox.ru/wp-content/uploads/2024/07/ЖК-Престиж-2.webp" />
   <h2>Планировки</h2>
   <img src="https://sellox.ru/wp-content/uploads/2024/07/Типовой-план-этажей.webp" />
+  <img src="https://sellox.ru/wp-content/uploads/2024/07/IMG_8842-1170x785.webp" />
   <img src="https://sellox.ru/wp-content/uploads/2023/12/sellox-300x93.webp" />
   <img src="https://sellox.ru/wp-content/uploads/2024/07/favicon-57x57-2.png" />
   <img src="https://sellox.ru/wp-content/uploads/2016/02/agent-Sellox-150x150.webp" />

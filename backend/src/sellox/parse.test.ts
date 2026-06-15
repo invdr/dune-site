@@ -76,10 +76,15 @@ describe('parseListing — Grozny complex', () => {
   })
 
   test('floor-plan images are split into their own list', () => {
+    // Both the "план"-named file and the arbitrarily-named IMG_8842 are kept:
+    // the latter is classified by its position under the "Планировки" heading,
+    // proving section detection, not just the filename hint.
     expect(parsed.floorPlans).toEqual([
       'https://sellox.ru/wp-content/uploads/2024/07/%D0%A2%D0%B8%D0%BF%D0%BE%D0%B2%D0%BE%D0%B9-%D0%BF%D0%BB%D0%B0%D0%BD-%D1%8D%D1%82%D0%B0%D0%B6%D0%B5%D0%B9.webp',
+      'https://sellox.ru/wp-content/uploads/2024/07/IMG_8842.webp',
     ])
     expect(parsed.photos.some((p) => p.toLowerCase().includes('plan'))).toBe(false)
+    expect(parsed.photos.some((p) => p.includes('IMG_8842'))).toBe(false)
   })
 
   test('related-listing widget is excluded from facts and photos', () => {

@@ -171,19 +171,41 @@ function extractDelivery(main: string): string | null {
 // Listing media: uploads under sellox.ru, minus the theme chrome (logo,
 // favicons, agent avatar, decorative icons), de-duplicated across WordPress
 // size variants and canonicalised to percent-encoded URLs. Floor-plan images
-// (filenames like "Типовой-план-этажей") are split into their own list so the
-// site can show a dedicated "Планировки" block.
+// are split into their own list so the site can show a dedicated "Планировки"
+// block.
 const PHOTO_DENYLIST = ['sellox', 'favicon', 'android-chrome', 'agent-', 'group-', 'x1-', 'x2-', 'logo', 'placeholder']
 const FLOOR_PLAN_HINT = /план|planirov|layout/i
+const HEADING_RE = /<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi
+
+// Sellox pages render plans under a dedicated "Планировки" heading, but the
+// image *filenames* there are arbitrary (e.g. "IMG_8842.webp", "2-komn.webp"),
+// so a filename test alone misses most of them. The reliable signal is the
+// section itself: locate the "Планировки" heading and treat everything from it
+// up to the next heading as the floor-plan region. Returns null when absent.
+function floorPlanRegion(main: string): { start: number; end: number } | null {
+  const headings = [...main.matchAll(HEADING_RE)]
+  for (let i = 0; i < headings.length; i++) {
+    const text = decodeEntities(stripTags(headings[i][1])).toLowerCase()
+    if (/планировк/.test(text)) {
+      const start = headings[i].index! + headings[i][0].length
+      const end = headings[i + 1]?.index ?? main.length
+      return { start, end }
+    }
+  }
+  return null
+}
 
 function extractMedia(html: string, main: string): { photos: string[]; floorPlans: string[] } {
   const photos: string[] = []
   const floorPlans: string[] = []
   const seen = new Set<string>()
+  const planRegion = floorPlanRegion(main)
 
-  const add = (raw: string, allowPlan = true) => {
+  const add = (raw: string, opts: { plan?: boolean; allowPlan?: boolean } = {}) => {
+    const { plan = false, allowPlan = true } = opts
     // Match the denylist against the file name only — the domain "sellox.ru"
-    // would otherwise reject every URL.
+    // would otherwise reject every URL. Chrome under the plans heading (logo,
+    // favicon, agent avatar) is still rejected here, never kept as a plan.
     const file = decodeURIComponent(raw.slice(raw.lastIndexOf('/') + 1)).toLowerCase()
     if (PHOTO_DENYLIST.some((bad) => file.includes(bad))) return
     const canonical = canonicalPhoto(raw)
@@ -191,15 +213,17 @@ function extractMedia(html: string, main: string): { photos: string[]; floorPlan
     const key = canonical.toLowerCase()
     if (seen.has(key)) return
     seen.add(key)
-    if (allowPlan && FLOOR_PLAN_HINT.test(file)) floorPlans.push(canonical)
+    // A plan if it sits in the "Планировки" section or its filename says so.
+    if (allowPlan && (plan || FLOOR_PLAN_HINT.test(file))) floorPlans.push(canonical)
     else photos.push(canonical)
   }
 
   // The hero (og:image) is always a photo, never reclassified as a plan.
   const primary = metaContent(html, 'og:image')
-  if (primary) add(decodeEntities(primary), false)
+  if (primary) add(decodeEntities(primary), { allowPlan: false })
   for (const m of main.matchAll(/https?:\/\/sellox\.ru\/wp-content\/uploads\/[^\s"'<>)]+\.(?:webp|jpe?g|png)/gi)) {
-    add(m[0])
+    const inPlanRegion = planRegion != null && m.index! >= planRegion.start && m.index! < planRegion.end
+    add(m[0], { plan: inPlanRegion })
   }
   return { photos: photos.slice(0, 60), floorPlans: floorPlans.slice(0, 60) }
 }

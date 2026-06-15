@@ -8,12 +8,15 @@ import { complexCardHtml } from '../lib/complexCard'
 const params = Astro.url.searchParams
 const sort = params.get('sort') ?? 'newest'
 const city = (params.get('city') ?? '').trim()
+const q = (params.get('q') ?? '').trim()
 const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
 
 const [settings, result] = await Promise.all([
   getPublicSettings(),
-  listComplexes({ sort, city: city || undefined, page, limit: 24 }),
+  listComplexes({ sort, city: city || undefined, q: q || undefined, page, limit: 24 }),
 ])
+
+const hasFilters = q !== '' || city !== ''
 
 const gridHtml = result.items.map((c) => complexCardHtml(c)).join('')
 
@@ -38,6 +41,21 @@ function pageHref(p: number): string {
   next.set('page', String(p))
   return `/novostroyki?${next.toString()}`
 }
+
+// Numbered pager: always show first, last, current and its neighbours; collapse
+// the rest into ellipsis gaps. Keeps the control compact as the catalog grows.
+function pageItems(current: number, count: number): Array<number | 'gap'> {
+  const wanted = new Set<number>([1, count, current, current - 1, current + 1])
+  const visible = [...wanted].filter((p) => p >= 1 && p <= count).sort((a, b) => a - b)
+  const items: Array<number | 'gap'> = []
+  let prev = 0
+  for (const p of visible) {
+    if (prev && p - prev > 1) items.push('gap')
+    items.push(p)
+    prev = p
+  }
+  return items
+}
 ---
 
 <Base
@@ -60,22 +78,41 @@ function pageHref(p: number): string {
     </section>
 
     <section class="section--tight container">
-      <div class="zhk-bar">
-        <div class="catalog__count">{countLabel}</div>
-        <form class="zhk-sort" method="get">
-          {city && <input type="hidden" name="city" value={city} />}
-          <label class="muted" for="zhkSort">Сортировка:</label>
+      <form class="zhk-bar" method="get">
+        <div class="zhk-search">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.2-3.2"></path></svg>
+          <input
+            class="zhk-search__input"
+            type="search"
+            name="q"
+            value={q}
+            placeholder="Поиск по ЖК, городу или застройщику"
+            aria-label="Поиск по новостройкам"
+          />
+        </div>
+        {city && <input type="hidden" name="city" value={city} />}
+        <div class="zhk-sort">
+          <label class="muted hide-mobile" for="zhkSort">Сортировка:</label>
           <select id="zhkSort" name="sort">
             {sorts.map((s) => (
               <option value={s.value} selected={sort === s.value}>{s.label}</option>
             ))}
           </select>
-          <button class="btn btn--ghost btn--sm" type="submit">Применить</button>
-        </form>
-      </div>
+        </div>
+        <button class="btn btn--primary btn--sm" type="submit">Применить</button>
+        {hasFilters && <a class="btn btn--ghost btn--sm" href="/novostroyki">Сбросить</a>}
+      </form>
+
+      <div class="catalog__count zhk-count">{countLabel}</div>
 
       {result.total > 0 ? (
         <div class="zhk-grid" set:html={gridHtml}></div>
+      ) : hasFilters ? (
+        <div class="catalog__empty">
+          <b>Ничего не найдено</b>
+          <p class="muted">По запросу «{q || city}» нет жилых комплексов. Измените запрос или сбросьте фильтры.</p>
+          <a class="btn btn--ghost btn--sm" href="/novostroyki">Сбросить фильтры</a>
+        </div>
       ) : (
         <div class="catalog__empty">
           <b>Пока нет опубликованных ЖК</b>
@@ -85,11 +122,27 @@ function pageHref(p: number): string {
       )}
 
       {result.pageCount > 1 && (
-        <div class="zhk-pager btn-row">
-          {page > 1 && <a class="btn btn--ghost btn--sm" href={pageHref(page - 1)}>Назад</a>}
-          <span class="muted">Страница {page} из {result.pageCount}</span>
-          {page < result.pageCount && <a class="btn btn--ghost btn--sm" href={pageHref(page + 1)}>Вперёд</a>}
-        </div>
+        <nav class="zhk-pager" aria-label="Страницы каталога">
+          {page > 1 && (
+            <a class="zhk-pager__btn" href={pageHref(page - 1)} rel="prev">Назад</a>
+          )}
+          {pageItems(page, result.pageCount).map((item) =>
+            item === 'gap' ? (
+              <span class="zhk-pager__gap" aria-hidden="true">…</span>
+            ) : (
+              <a
+                class:list={['zhk-pager__num', item === page && 'is-on']}
+                href={pageHref(item)}
+                aria-current={item === page ? 'page' : undefined}
+              >
+                {item}
+              </a>
+            ),
+          )}
+          {page < result.pageCount && (
+            <a class="zhk-pager__btn" href={pageHref(page + 1)} rel="next">Вперёд</a>
+          )}
+        </nav>
       )}
     </section>
 

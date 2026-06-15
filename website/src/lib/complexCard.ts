@@ -30,9 +30,25 @@ export function complexHeadline(c: ComplexDto): string {
   return 'Цена по запросу'
 }
 
-// Single source of truth for a ЖК card's markup (catalog grid + related rows).
-export function complexCardHtml(c: ComplexDto): string {
+// A ЖК is favourited under a namespaced id (`zhk:<slug>`) so the shared local
+// favourites store can hold complexes and apartments side by side without slug
+// collisions; the favourites page splits them back by this prefix.
+export function complexFavoriteId(slug: string): string {
+  return `zhk:${slug}`
+}
+
+export interface ComplexCardOptions {
+  favorite?: boolean
+}
+
+// Single source of truth for a ЖК card's markup (catalog grid + favourites).
+export function complexCardHtml(c: ComplexDto, opts: ComplexCardOptions = {}): string {
   const meta = metaByDirection(c.direction)
+
+  const favId = escapeHtml(complexFavoriteId(c.slug))
+  // "Планировки" signals that the freshly-imported floor-plan block exists on
+  // the detail page — a concrete reason to open the ЖК.
+  const planTag = c.floorPlans.length > 0 ? '<span class="tag tag--sand">Планировки</span>' : ''
 
   const media = phHtml({
     kind: meta.ph,
@@ -41,7 +57,9 @@ export function complexCardHtml(c: ComplexDto): string {
     photo: c.photos[0] ?? null,
     extraClass: 'card__media',
     overlay:
-      `<div class="card__tags">${badgeTags(c)}</div>` +
+      `<div class="card__tags">${badgeTags(c)}${planTag}</div>` +
+      `<button class="card__fav${opts.favorite ? ' is-on' : ''}" type="button" data-fav="${favId}" ` +
+      `aria-label="В избранное" aria-pressed="${opts.favorite ? 'true' : 'false'}">${ICONS.heart}</button>` +
       `<div class="card__price-badge">${escapeHtml(complexHeadline(c))}</div>`,
   })
 

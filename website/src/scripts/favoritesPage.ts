@@ -1,22 +1,35 @@
-import type { PropertyDto } from '@dune/contracts'
+import type { ComplexDetailDto, PropertyDto } from '@dune/contracts'
 
-import { getProperty } from '../lib/api'
+import { getComplex, getProperty } from '../lib/api'
 import { cardHtml } from '../lib/card'
+import { complexCardHtml } from '../lib/complexCard'
 import { FAVORITES_EVENT, getFavorites, refreshFavorites } from './favorites'
 import { initReveal } from './ui'
 
-// Renders the saved listings from localStorage. Fetched properties are cached
-// so toggling a favourite off just drops its card without refetching the rest.
-const cache = new Map<string, PropertyDto | null>()
+// Favourites hold both apartments (bare slug) and ЖК (namespaced `zhk:<slug>`).
+// Each saved id is resolved to its card markup, preserving the order the user
+// saved them. Results are cached so toggling one favourite off just drops its
+// card without refetching the rest.
+const COMPLEX_PREFIX = 'zhk:'
+const cache = new Map<string, string | null>()
 
-async function resolve(slugs: string[]): Promise<PropertyDto[]> {
-  const missing = slugs.filter((s) => !cache.has(s))
-  await Promise.all(
-    missing.map(async (slug) => {
-      cache.set(slug, await getProperty(slug))
-    }),
-  )
-  return slugs.map((s) => cache.get(s) ?? null).filter((p): p is PropertyDto => p !== null)
+async function resolveCard(favId: string): Promise<string | null> {
+  if (cache.has(favId)) return cache.get(favId) ?? null
+  let markup: string | null = null
+  if (favId.startsWith(COMPLEX_PREFIX)) {
+    const complex: ComplexDetailDto | null = await getComplex(favId.slice(COMPLEX_PREFIX.length))
+    markup = complex ? complexCardHtml(complex, { favorite: true }) : null
+  } else {
+    const property: PropertyDto | null = await getProperty(favId)
+    markup = property ? cardHtml(property, { favorite: true }) : null
+  }
+  cache.set(favId, markup)
+  return markup
+}
+
+async function resolve(favIds: string[]): Promise<string[]> {
+  const cards = await Promise.all(favIds.map(resolveCard))
+  return cards.filter((c): c is string => c !== null)
 }
 
 export function initFavoritesPage(): void {
@@ -30,8 +43,8 @@ export function initFavoritesPage(): void {
   async function render(): Promise<void> {
     if (rendering) return
     rendering = true
-    const slugs = getFavorites()
-    if (!slugs.length) {
+    const favIds = getFavorites()
+    if (!favIds.length) {
       grid!.hidden = true
       grid!.innerHTML = ''
       loading!.hidden = true
@@ -39,9 +52,9 @@ export function initFavoritesPage(): void {
       rendering = false
       return
     }
-    const items = await resolve(slugs)
+    const cards = await resolve(favIds)
     loading!.hidden = true
-    if (!items.length) {
+    if (!cards.length) {
       grid!.hidden = true
       empty!.hidden = false
       rendering = false
@@ -49,7 +62,7 @@ export function initFavoritesPage(): void {
     }
     empty!.hidden = true
     grid!.hidden = false
-    grid!.innerHTML = items.map((p) => cardHtml(p, { favorite: true })).join('')
+    grid!.innerHTML = cards.join('')
     initReveal(grid!)
     grid!.querySelectorAll<HTMLElement>('.fade-up').forEach((e) => e.classList.add('in'))
     refreshFavorites()
