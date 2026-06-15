@@ -32,7 +32,9 @@ describe('mirrorPhotos', () => {
       'https://sellox.ru/b.jpg': { bytes: new Uint8Array([3, 4, 5]), contentType: 'image/jpeg' },
     })
 
-    const result = await mirrorPhotos(service, 'zhk-prestizh', ['https://sellox.ru/a.webp', 'https://sellox.ru/b.jpg'], fetcher)
+    const result = await mirrorPhotos(service, 'zhk-prestizh', ['https://sellox.ru/a.webp', 'https://sellox.ru/b.jpg'], {
+      fetcher,
+    })
 
     expect(result.mirrored).toBe(2)
     expect(result.failed).toBe(0)
@@ -46,13 +48,25 @@ describe('mirrorPhotos', () => {
     ])
   })
 
+  test('routes floor plans into a plans/ subfolder', async () => {
+    const { service, uploads } = fakeStorage()
+    const fetcher = fetcherFor({
+      'https://sellox.ru/plan.webp': { bytes: new Uint8Array([1]), contentType: 'image/webp' },
+    })
+
+    const result = await mirrorPhotos(service, 'zhk-x', ['https://sellox.ru/plan.webp'], { fetcher, subdir: 'plans' })
+
+    expect(uploads[0].key).toBe('complexes/sellox/zhk-x/plans/01.webp')
+    expect(result.photos).toEqual(['https://cdn.example.com/complexes/sellox/zhk-x/plans/01.webp'])
+  })
+
   test('derives the extension from the URL when the content type is generic', async () => {
     const { service, uploads } = fakeStorage()
     const fetcher = fetcherFor({
       'https://sellox.ru/photo.png': { bytes: new Uint8Array([9]), contentType: 'application/octet-stream' },
     })
 
-    await mirrorPhotos(service, 'zhk-x', ['https://sellox.ru/photo.png'], fetcher)
+    await mirrorPhotos(service, 'zhk-x', ['https://sellox.ru/photo.png'], { fetcher })
 
     expect(uploads[0].key).toBe('complexes/sellox/zhk-x/01.png')
   })
@@ -64,7 +78,9 @@ describe('mirrorPhotos', () => {
       'https://sellox.ru/bad.webp': 'error',
     })
 
-    const result = await mirrorPhotos(service, 'zhk-y', ['https://sellox.ru/ok.webp', 'https://sellox.ru/bad.webp'], fetcher)
+    const result = await mirrorPhotos(service, 'zhk-y', ['https://sellox.ru/ok.webp', 'https://sellox.ru/bad.webp'], {
+      fetcher,
+    })
 
     expect(result.mirrored).toBe(1)
     expect(result.failed).toBe(1)

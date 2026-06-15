@@ -82,10 +82,14 @@ export function PhotoEditor({
   values,
   onChange,
   onUpload,
+  label = 'Фотографии',
+  description = 'Вставьте ссылку на изображение или загрузите файл. Первое фото — обложка.',
 }: {
   values: string[]
   onChange: (values: string[]) => void
   onUpload?: (file: File) => Promise<string>
+  label?: string
+  description?: string
 }) {
   const [urlDraft, setUrlDraft] = useState('')
   const [isUploading, setIsUploading] = useState(false)
@@ -130,10 +134,8 @@ export function PhotoEditor({
 
   return (
     <div className="grid gap-3">
-      <FieldLabel>Фотографии</FieldLabel>
-      <FieldDescription>
-        Вставьте ссылку на изображение или загрузите файл. Первое фото — обложка.
-      </FieldDescription>
+      <FieldLabel>{label}</FieldLabel>
+      <FieldDescription>{description}</FieldDescription>
 
       <div className="flex flex-wrap gap-2">
         <Input

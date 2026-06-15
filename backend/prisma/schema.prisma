@@ -234,6 +234,9 @@ model Complex {
   // Long marketing description (plain text).
   description     String?
   photos          String[]
+  // Floor-plan images, shown in a dedicated "Планировки" block separate from
+  // photos. Default [] backfills existing complexes when this column is added.
+  floorPlans      String[]          @default([]) @map("floor_plans")
   // Branded gradient tone used when no photos are present ('', 'ink', 'sand').
   placeholderTone String?           @map("placeholder_tone")
   // Bespoke marketing labels (e.g. "Бизнес-класс").

@@ -30,12 +30,22 @@ export const GROZNY_HTML = `<!doctype html><html><head>
   <div class="price">68,000₽/м²</div>
   <div class="area">от 47 м²</div>
   <div class="facts">Год сдачи: 2026</div>
+  <div class="block-content-wrap"><div class="detail-wrap"><ul class="list-2-cols list-unstyled">
+    <li> <strong>Артикул:</strong> <span>PRESTIZH</span> </li>
+    <li> <strong>Цена:</strong> <span><span class="price-start">от</span> 68,000₽/м²</span> </li>
+    <li> <strong>Этажность:</strong> <span>18</span> </li>
+    <li class="prop_type"> <strong>Тип недвижимости:</strong> <span>Новостройки</span> </li>
+    <li class="prop_status"> <strong>Статус недв.:</strong> <span>ЖК в Грозном</span> </li>
+  </ul></div></div>
+  <ul class="features"><li><i class="houzez-icon"></i><a href="https://sellox.ru/feature/basseyn/">Бассейн</a></li><li><i></i><a href="https://sellox.ru/feature/rassrochka/">Есть рассрочка</a></li><li><i></i><a href="https://sellox.ru/feature/shkola-ryadom/">Школа рядом</a></li></ul>
   <p>ЖК Престиж в Грозном представляет собой современный жилой комплекс, который сочетает в себе высший уровень комфорта и стильный дизайн. Расположен на новом проспекте Путина, он обеспечивает отличное качество жизни для своих жителей и продуманную инфраструктуру.</p>
   <p>На первых двух этажах расположена коммерческая зона, включающая бассейн, фитнес-центр, хаммам и детскую игровую комнату. Предусмотрен двухъярусный подземный паркинг и охраняемая территория.</p>
   <p>Есть возможность приобретения жилья в рассрочку с первоначальным взносом от 30% до 50%.</p>
   <img src="https://sellox.ru/wp-content/uploads/2024/07/ЖК-Престиж-1-1170x785.webp" />
   <img src="https://sellox.ru/wp-content/uploads/2024/07/ЖК-Престиж-1.webp" />
   <img src="https://sellox.ru/wp-content/uploads/2024/07/ЖК-Престиж-2.webp" />
+  <h2>Планировки</h2>
+  <img src="https://sellox.ru/wp-content/uploads/2024/07/Типовой-план-этажей.webp" />
   <img src="https://sellox.ru/wp-content/uploads/2023/12/sellox-300x93.webp" />
   <img src="https://sellox.ru/wp-content/uploads/2024/07/favicon-57x57-2.png" />
   <img src="https://sellox.ru/wp-content/uploads/2016/02/agent-Sellox-150x150.webp" />

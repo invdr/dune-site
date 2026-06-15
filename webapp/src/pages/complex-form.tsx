@@ -37,6 +37,7 @@ type Draft = {
   lat: string
   lng: string
   photos: string[]
+  floorPlans: string[]
   badges: string[]
   features: string[]
   attributes: AttrRow[]
@@ -58,6 +59,7 @@ function toDraft(complex?: ComplexDto): Draft {
     lat: complex?.lat != null ? String(complex.lat) : '',
     lng: complex?.lng != null ? String(complex.lng) : '',
     photos: complex?.photos ?? [],
+    floorPlans: complex?.floorPlans ?? [],
     badges: complex?.badges ?? [],
     features: complex?.features ?? [],
     attributes: complex?.attributes ?? [],
@@ -87,6 +89,7 @@ function buildPayload(draft: Draft) {
     lat: optionalNumber(draft.lat) ?? null,
     lng: optionalNumber(draft.lng) ?? null,
     photos: draft.photos,
+    floorPlans: draft.floorPlans,
     badges: draft.badges,
     features: draft.features,
     // Drop incomplete characteristic rows so we never persist half-filled pairs.
@@ -309,6 +312,13 @@ export function ComplexForm({
           onChange={(photos) => update({ photos })}
           onUpload={(file) => uploadFile(api, file, 'properties')}
         />
+        <PhotoEditor
+          label="Планировки"
+          description="Изображения планировок — показываются отдельным блоком на странице ЖК."
+          values={draft.floorPlans}
+          onChange={(floorPlans) => update({ floorPlans })}
+          onUpload={(file) => uploadFile(api, file, 'properties')}
+        />
         <TextareaField
           label="Описание"
           rows={6}
@@ -324,7 +334,7 @@ export function ComplexForm({
           onChange={(badges) => update({ badges })}
         />
         <StringListEditor
-          label="Инфраструктура"
+          label="Особенности"
           description="Список преимуществ на странице ЖК."
           values={draft.features}
           onChange={(features) => update({ features })}

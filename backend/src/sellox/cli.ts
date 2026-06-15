@@ -69,7 +69,8 @@ async function main() {
       await runtime.close()
       process.exit(1)
     }
-    photoMirror = async (slug, urls) => (await mirrorPhotos(storage, slug, urls)).photos
+    photoMirror = async (slug, urls, kind) =>
+      (await mirrorPhotos(storage, slug, urls, { subdir: kind === 'plan' ? 'plans' : undefined })).photos
   }
 
   console.log(

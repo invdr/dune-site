@@ -357,6 +357,15 @@
 .amenities{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:8px}
 .amenities li{display:flex;gap:12px;align-items:center;font-size:15px;color:var(--ink);list-style:none;padding:12px 0}
 .amenities svg{width:20px;height:20px;color:var(--bordo);flex:none}
+.plans{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:8px}
+.plans__item{display:block;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:#fff;box-shadow:var(--shadow-sm)}
+.plans__item img{display:block;width:100%;height:auto;object-fit:contain;background:#fff}
+.pdp__more{margin-top:-4px}
+.pdp__more[open]>.pdp__more-toggle{margin-bottom:14px}
+.pdp__more-toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--bordo);font-weight:600;font-size:15px;list-style:none;user-select:none}
+.pdp__more-toggle::-webkit-details-marker{display:none}
+.pdp__more-toggle::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .2s}
+.pdp__more[open]>.pdp__more-toggle::after{transform:rotate(-135deg)}
 .pdp__aside{position:sticky;top:104px;display:flex;flex-direction:column;gap:18px}
 .price-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:28px;box-shadow:var(--shadow-sm)}
 .price-card__price{font-size:34px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
@@ -395,6 +404,7 @@
   .gallery__thumbs .ph{flex:0 0 46%;aspect-ratio:4/3;scroll-snap-align:start;border-radius:var(--r);overflow:hidden}
   .gallery__more{right:8px;bottom:8px;height:44px;padding:0 14px;font-size:11px}
   .amenities{grid-template-columns:1fr}
+  .plans{grid-template-columns:1fr}
 }
 
 /* ---------- hero spacer (compensates overlapping search on desktop) ---------- */

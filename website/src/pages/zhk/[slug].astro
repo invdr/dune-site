@@ -24,6 +24,7 @@ const tone = resolvePlaceholderTone(complex)
 
 // Gallery: hero + up to 3 thumbs, padded with branded placeholders.
 const photos = complex.photos
+const floorPlans = complex.floorPlans ?? []
 const galleryCells: string[] = []
 for (let i = 0; i < 4; i++) {
   const overlay =
@@ -129,20 +130,41 @@ const mapNote = complex.address ?? locText
         {descParagraphs.length > 0 && (
           <>
             <h2 class="block-t">О комплексе</h2>
-            {descParagraphs.map((p) => (
+            {descParagraphs.slice(0, 2).map((p) => (
               <p class="pdp__desc">{p}</p>
             ))}
+            {descParagraphs.length > 2 && (
+              <details class="pdp__more">
+                <summary class="pdp__more-toggle">Читать далее</summary>
+                {descParagraphs.slice(2).map((p) => (
+                  <p class="pdp__desc">{p}</p>
+                ))}
+              </details>
+            )}
           </>
         )}
 
         {complex.features.length > 0 && (
           <>
-            <h2 class="block-t">Инфраструктура</h2>
+            <h2 class="block-t">Особенности</h2>
             <ul class="amenities ul">
               {complex.features.map((f) => (
                 <li><Fragment set:html={ICONS.check} /><span>{f}</span></li>
               ))}
             </ul>
+          </>
+        )}
+
+        {floorPlans.length > 0 && (
+          <>
+            <h2 class="block-t">Планировки</h2>
+            <div class="plans">
+              {floorPlans.map((src, i) => (
+                <a class="plans__item" href={src} target="_blank" rel="noopener">
+                  <img src={src} alt={`Планировка ${i + 1} — ${complex.name}`} loading="lazy" />
+                </a>
+              ))}
+            </div>
           </>
         )}
 

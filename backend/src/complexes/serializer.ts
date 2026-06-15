@@ -29,6 +29,7 @@ export function toComplexDto(complex: Complex, aggregate: ComplexAggregate): Com
     delivery: complex.delivery,
     description: complex.description,
     photos: complex.photos,
+    floorPlans: complex.floorPlans,
     placeholderTone: complex.placeholderTone,
     badges: complex.badges,
     features: complex.features,

@@ -24,14 +24,23 @@ const defaultPhotoFetcher: PhotoFetcher = async (url) => {
   return { bytes, contentType }
 }
 
-// Downloads each photo and re-uploads it under a stable, per-complex key. Stable
+export type MirrorOptions = {
+  fetcher?: PhotoFetcher
+  // Sub-path under the complex folder, e.g. "plans" for floor plans. Keeps
+  // photos and plans in separate, predictable locations on disk.
+  subdir?: string
+}
+
+// Downloads each image and re-uploads it under a stable, per-complex key. Stable
 // keys make re-runs idempotent (the same object is overwritten, not duplicated).
 export async function mirrorPhotos(
   storage: ObjectStorage,
   slug: string,
   urls: string[],
-  fetcher: PhotoFetcher = defaultPhotoFetcher,
+  options: MirrorOptions = {},
 ): Promise<MirrorResult> {
+  const fetcher = options.fetcher ?? defaultPhotoFetcher
+  const prefix = options.subdir ? `complexes/sellox/${slug}/${options.subdir}` : `complexes/sellox/${slug}`
   const photos: string[] = []
   let mirrored = 0
   let failed = 0
@@ -41,7 +50,7 @@ export async function mirrorPhotos(
     try {
       const { bytes, contentType } = await fetcher(url)
       const ext = extensionForContentType(contentType) ?? extensionFromUrl(url) ?? 'jpg'
-      const key = `complexes/sellox/${slug}/${String(index + 1).padStart(2, '0')}.${ext}`
+      const key = `${prefix}/${String(index + 1).padStart(2, '0')}.${ext}`
       const { publicUrl } = await storage.putObject({ key, body: bytes, contentType, visibility: 'public' })
       photos.push(publicUrl ?? url)
       mirrored += 1

@@ -14,10 +14,11 @@ export const SELLOX_SITEMAP_URL = 'https://sellox.ru/property-sitemap.xml'
 // Injectable so tests run offline; the CLI supplies a real, throttled fetcher.
 export type SelloxFetcher = (url: string) => Promise<string>
 
-// Given a complex slug and its remote photo URLs, returns the URLs to persist
-// (e.g. after mirroring into our own bucket). Injected so import.ts stays
-// decoupled from the storage provider and testable offline.
-export type PhotoMirror = (slug: string, urls: string[]) => Promise<string[]>
+// Given a complex slug, a set of remote image URLs, and what kind of media they
+// are, returns the URLs to persist (e.g. after mirroring into our own bucket).
+// Injected so import.ts stays decoupled from the storage provider and testable.
+export type MediaKind = 'photo' | 'plan'
+export type PhotoMirror = (slug: string, urls: string[], kind: MediaKind) => Promise<string[]>
 
 export type ImportOptions = {
   fetcher: SelloxFetcher
@@ -76,12 +77,17 @@ async function importOne(db: DbClient, url: string, options: ImportOptions): Pro
     return { url, slug: slugFromUrl(url), name: '', action: 'failed', reason: message(error) }
   }
 
-  // Mirror photos into our own storage before persisting, so saved URLs point
+  // Mirror images into our own storage before persisting, so saved URLs point
   // at us rather than sellox.ru. A mirror failure must not fail the import — the
-  // mirror itself falls back to the original URL per photo.
-  if (options.mirrorPhotos && parsed.photos.length > 0) {
+  // mirror itself falls back to the original URL per image.
+  if (options.mirrorPhotos) {
     try {
-      parsed = { ...parsed, photos: await options.mirrorPhotos(parsed.slug, parsed.photos) }
+      const mirror = options.mirrorPhotos
+      const [photos, floorPlans] = await Promise.all([
+        parsed.photos.length > 0 ? mirror(parsed.slug, parsed.photos, 'photo') : Promise.resolve(parsed.photos),
+        parsed.floorPlans.length > 0 ? mirror(parsed.slug, parsed.floorPlans, 'plan') : Promise.resolve(parsed.floorPlans),
+      ])
+      parsed = { ...parsed, photos, floorPlans }
     } catch (error) {
       options.log?.(`  ! photo mirror failed for ${parsed.slug}, keeping remote URLs — ${message(error)}`)
     }
@@ -134,7 +140,9 @@ function toCreateRequest(parsed: ParsedComplex): CreateComplexRequest {
     description: parsed.description,
     delivery: parsed.delivery,
     photos: parsed.photos,
+    floorPlans: parsed.floorPlans,
     features: parsed.features,
+    attributes: parsed.attributes,
     badges: parsed.badges,
     priceFrom: parsed.priceFrom,
     areaFrom: parsed.areaFrom,

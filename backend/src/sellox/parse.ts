@@ -7,7 +7,7 @@
 // structured, review-ready draft. Extraction favours precision over coverage —
 // a missing field is left null for an admin to fill, never guessed.
 
-import type { Country, Currency, PropertyDirection } from '@dune/contracts'
+import type { Country, Currency, PropertyAttribute, PropertyDirection } from '@dune/contracts'
 
 export type ParsedComplex = {
   slug: string
@@ -19,7 +19,9 @@ export type ParsedComplex = {
   description: string | null
   delivery: string | null
   photos: string[]
+  floorPlans: string[]
   features: string[]
+  attributes: PropertyAttribute[]
   badges: string[]
   priceFrom: number | null
   areaFrom: number | null
@@ -49,6 +51,7 @@ export function parseListing(html: string, url: string): ParsedComplex {
 
   const haystack = `${metaContent(html, 'og:title') ?? ''} ${metaContent(html, 'og:description') ?? ''} ${main}`
   const geo = detectGeography(haystack)
+  const media = extractMedia(html, main)
 
   return {
     slug,
@@ -59,8 +62,10 @@ export function parseListing(html: string, url: string): ParsedComplex {
     currency: geo.currency,
     description: extractDescription(html, main),
     delivery: extractDelivery(main),
-    photos: extractPhotos(html, main),
+    photos: media.photos,
+    floorPlans: media.floorPlans,
     features: extractFeatures(main),
+    attributes: extractAttributes(main),
     badges: /рассроч/i.test(main) ? ['Рассрочка'] : [],
     priceFrom: extractPriceFrom(main),
     areaFrom: extractAreaFrom(main),
@@ -156,35 +161,40 @@ function extractDelivery(main: string): string | null {
   return `Сдача: ${quarter ? `${quarter} ` : ''}${m[2]}`
 }
 
-// Listing photos: uploads under sellox.ru, minus the theme chrome (logo,
+// Listing media: uploads under sellox.ru, minus the theme chrome (logo,
 // favicons, agent avatar, decorative icons), de-duplicated across WordPress
-// size variants and canonicalised to percent-encoded URLs.
+// size variants and canonicalised to percent-encoded URLs. Floor-plan images
+// (filenames like "Типовой-план-этажей") are split into their own list so the
+// site can show a dedicated "Планировки" block.
 const PHOTO_DENYLIST = ['sellox', 'favicon', 'android-chrome', 'agent-', 'group-', 'x1-', 'x2-', 'logo', 'placeholder']
+const FLOOR_PLAN_HINT = /план|planirov|layout/i
 
-function extractPhotos(html: string, main: string): string[] {
-  const ordered: string[] = []
+function extractMedia(html: string, main: string): { photos: string[]; floorPlans: string[] } {
+  const photos: string[] = []
+  const floorPlans: string[] = []
   const seen = new Set<string>()
 
-  const add = (raw: string) => {
+  const add = (raw: string, allowPlan = true) => {
     // Match the denylist against the file name only — the domain "sellox.ru"
     // would otherwise reject every URL.
-    const file = raw.slice(raw.lastIndexOf('/') + 1).toLowerCase()
+    const file = decodeURIComponent(raw.slice(raw.lastIndexOf('/') + 1)).toLowerCase()
     if (PHOTO_DENYLIST.some((bad) => file.includes(bad))) return
     const canonical = canonicalPhoto(raw)
     if (!canonical) return
     const key = canonical.toLowerCase()
     if (seen.has(key)) return
     seen.add(key)
-    ordered.push(canonical)
+    if (allowPlan && FLOOR_PLAN_HINT.test(file)) floorPlans.push(canonical)
+    else photos.push(canonical)
   }
 
-  // Primary image first, then gallery images from the main region only.
+  // The hero (og:image) is always a photo, never reclassified as a plan.
   const primary = metaContent(html, 'og:image')
-  if (primary) add(decodeEntities(primary))
+  if (primary) add(decodeEntities(primary), false)
   for (const m of main.matchAll(/https?:\/\/sellox\.ru\/wp-content\/uploads\/[^\s"'<>)]+\.(?:webp|jpe?g|png)/gi)) {
     add(m[0])
   }
-  return ordered.slice(0, 60)
+  return { photos: photos.slice(0, 60), floorPlans: floorPlans.slice(0, 60) }
 }
 
 // Strip the WordPress `-1170x785` size suffix so variants of one photo collapse
@@ -198,7 +208,25 @@ function canonicalPhoto(raw: string): string | null {
   }
 }
 
-// High-precision amenity scan → display-ready feature bullets.
+// The "Особенности" list — Houzez renders each as a link into the /feature/
+// taxonomy, so the anchor text is the authoritative, full feature list.
+function extractFeatures(main: string): string[] {
+  const seen = new Set<string>()
+  const features: string[] = []
+  for (const m of main.matchAll(/<a[^>]*href="[^"]*\/feature\/[^"]*"[^>]*>([^<]+)<\/a>/gi)) {
+    const label = decodeEntities(m[1]).replace(/\s+/g, ' ').trim()
+    const key = label.toLowerCase()
+    if (!label || label.length > 120 || seen.has(key)) continue
+    seen.add(key)
+    features.push(label)
+  }
+  // Fallback for pages that don't use the feature taxonomy: a keyword scan.
+  if (features.length === 0) return amenityKeywords(main)
+  // Contract caps the list at 20 items.
+  return features.slice(0, 20)
+}
+
+// High-precision amenity scan, used only when no /feature/ links are present.
 const AMENITIES: Array<{ label: string; test: RegExp }> = [
   { label: 'Бассейн', test: /бассейн/i },
   { label: 'Фитнес-центр', test: /фитнес/i },
@@ -211,9 +239,26 @@ const AMENITIES: Array<{ label: string; test: RegExp }> = [
   { label: 'Коммерческие помещения', test: /коммерческ\w*\s+(?:зон|помещ|площад)/i },
 ]
 
-function extractFeatures(main: string): string[] {
+function amenityKeywords(main: string): string[] {
   const text = decodeEntities(stripTags(main))
   return AMENITIES.filter((a) => a.test.test(text)).map((a) => a.label).slice(0, 20)
+}
+
+// The "Характеристики" table — Houzez renders it as
+// `<li><strong>Label:</strong> <span>Value</span></li>` inside the first
+// `.detail-wrap` list. Returns display-ready {label, value} pairs in page order.
+function extractAttributes(main: string): PropertyAttribute[] {
+  const block = main.match(/<div class="detail-wrap">[\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i)
+  if (!block) return []
+
+  const attributes: PropertyAttribute[] = []
+  for (const m of block[1].matchAll(/<li[^>]*>\s*<strong>([\s\S]*?)<\/strong>([\s\S]*?)<\/li>/gi)) {
+    const label = decodeEntities(stripTags(m[1])).replace(/\s+/g, ' ').replace(/:\s*$/, '').trim()
+    const value = decodeEntities(stripTags(m[2])).replace(/\s+/g, ' ').trim()
+    if (!label || !value || label.length > 120 || value.length > 200) continue
+    attributes.push({ label, value })
+  }
+  return attributes.slice(0, 30)
 }
 
 // --- geography ---------------------------------------------------------------
