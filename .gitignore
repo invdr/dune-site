@@ -25,6 +25,9 @@ bun-debug.log*
 .env.*
 !.env.example
 
+# Local media (local-disk storage driver: MEDIA_LOCAL_ROOT, served by nginx)
+/media/
+
 # Prisma generated client
 backend/src/generated/prisma/
 backend/.prisma-generate.lock
