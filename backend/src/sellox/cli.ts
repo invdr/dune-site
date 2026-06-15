@@ -1,5 +1,5 @@
 import { createBackendRuntime } from '../runtime'
-import { createStorageServiceFromEnv } from '../storage/service'
+import { resolveObjectStorage } from '../storage/object-storage'
 import { importSellox, type PhotoMirror, type SelloxFetcher } from './import'
 import { mirrorPhotos } from './photos'
 
@@ -58,12 +58,13 @@ async function main() {
   if (flags.mirrorPhotos && flags.dryRun) {
     console.log('Note: --dry-run skips photo mirroring (it would write to the bucket).')
   } else if (flags.mirrorPhotos) {
-    const storage = createStorageServiceFromEnv(runtime.env)
+    const storage = resolveObjectStorage(runtime.env)
     if (!storage) {
       console.error(
-        'Cannot mirror photos: object storage is not configured. Set SPACES_ENDPOINT, ' +
-          'SPACES_REGION, SPACES_BUCKET, SPACES_ACCESS_KEY_ID, SPACES_SECRET_ACCESS_KEY ' +
-          '(and SPACES_CDN_BASE_URL for the public URL base).',
+        'Cannot mirror photos: no media storage is configured. Either set the local-disk ' +
+          'driver (MEDIA_LOCAL_ROOT + MEDIA_PUBLIC_BASE_URL) or S3-compatible storage ' +
+          '(SPACES_ENDPOINT, SPACES_REGION, SPACES_BUCKET, SPACES_ACCESS_KEY_ID, ' +
+          'SPACES_SECRET_ACCESS_KEY, SPACES_CDN_BASE_URL).',
       )
       await runtime.close()
       process.exit(1)

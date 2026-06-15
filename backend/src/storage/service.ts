@@ -322,7 +322,7 @@ function sanitizeFilename(filename: string) {
   return (sanitized || 'file').slice(0, 120)
 }
 
-function joinUrlPath(baseUrl: string, key: string) {
+export function joinUrlPath(baseUrl: string, key: string) {
   const url = new URL(baseUrl)
   const basePath = url.pathname.replace(/\/+$/, '')
   const encodedKey = key.split('/').map(encodeURIComponent).join('/')

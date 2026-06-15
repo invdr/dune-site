@@ -57,6 +57,11 @@ const envSchema = z.object({
   SPACES_UPLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(15 * 60),
   SPACES_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(5 * 60),
   SPACES_PUBLIC_CACHE_CONTROL: stringWithDefault('public, max-age=31536000, immutable'),
+  // Local-disk media driver (single-VPS deployments): files are written under
+  // MEDIA_LOCAL_ROOT and served by nginx from MEDIA_PUBLIC_BASE_URL. Both
+  // optional; set together to enable the local driver instead of S3.
+  MEDIA_LOCAL_ROOT: optionalStringSchema,
+  MEDIA_PUBLIC_BASE_URL: optionalUrlSchema,
   // QuickDeal native feed (org-scoped URL) and its secret token. Both optional:
   // the importer stays idle until configured. The secret lives here, never in
   // the repo (§14).
@@ -66,6 +71,7 @@ const envSchema = z.object({
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)
   validateStorageEnv(env, ctx)
+  validateLocalMediaEnv(env, ctx)
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -179,4 +185,16 @@ function validateStorageEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx
       })
     }
   }
+}
+
+function validateLocalMediaEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx) {
+  const hasRoot = env.MEDIA_LOCAL_ROOT !== undefined
+  const hasBase = env.MEDIA_PUBLIC_BASE_URL !== undefined
+  if (hasRoot === hasBase) return // both set or both unset → nothing to flag
+
+  ctx.addIssue({
+    code: 'custom',
+    path: [hasRoot ? 'MEDIA_PUBLIC_BASE_URL' : 'MEDIA_LOCAL_ROOT'],
+    message: 'MEDIA_LOCAL_ROOT and MEDIA_PUBLIC_BASE_URL must be set together to enable the local media driver',
+  })
 }

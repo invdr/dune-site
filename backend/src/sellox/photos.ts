@@ -1,4 +1,4 @@
-import type { StorageService } from '../storage/service'
+import type { ObjectStorage } from '../storage/object-storage'
 
 // Mirrors remote listing photos into our own S3-compatible bucket so the
 // catalog no longer depends on sellox.ru staying online. Pure orchestration
@@ -27,7 +27,7 @@ const defaultPhotoFetcher: PhotoFetcher = async (url) => {
 // Downloads each photo and re-uploads it under a stable, per-complex key. Stable
 // keys make re-runs idempotent (the same object is overwritten, not duplicated).
 export async function mirrorPhotos(
-  storage: StorageService,
+  storage: ObjectStorage,
   slug: string,
   urls: string[],
   fetcher: PhotoFetcher = defaultPhotoFetcher,
