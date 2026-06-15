@@ -25,6 +25,9 @@ export type ParsedComplex = {
   badges: string[]
   priceFrom: number | null
   areaFrom: number | null
+  address: string | null
+  lat: number | null
+  lng: number | null
 }
 
 // --- sitemap -----------------------------------------------------------------
@@ -52,6 +55,7 @@ export function parseListing(html: string, url: string): ParsedComplex {
   const haystack = `${metaContent(html, 'og:title') ?? ''} ${metaContent(html, 'og:description') ?? ''} ${main}`
   const geo = detectGeography(haystack)
   const media = extractMedia(html, main)
+  const point = extractGeoPoint(html)
 
   return {
     slug,
@@ -69,6 +73,9 @@ export function parseListing(html: string, url: string): ParsedComplex {
     badges: /рассроч/i.test(main) ? ['Рассрочка'] : [],
     priceFrom: extractPriceFrom(main),
     areaFrom: extractAreaFrom(main),
+    address: point.address,
+    lat: point.lat,
+    lng: point.lng,
   }
 }
 
@@ -296,6 +303,29 @@ function detectGeography(haystack: string): Geography {
   // Sitemap is overwhelmingly Grozny; default keeps the required city field
   // populated and is trivially correctable in admin for the rare exception.
   return { city: 'Грозный', country: 'RU', direction: 'NEW', currency: 'RUB' }
+}
+
+// Map marker emitted by Houzez (`"address":"…","lat":"…","lng":"…"`). The single
+// property page carries exactly one marker — its own — so address and a precise
+// point come for free, enough to drop a pin on the "Расположение" map.
+function extractGeoPoint(html: string): { address: string | null; lat: number | null; lng: number | null } {
+  const m = html.match(/"address":"((?:[^"\\]|\\.)*)","lat":"(-?\d+(?:\.\d+)?)","lng":"(-?\d+(?:\.\d+)?)"/)
+  if (!m) return { address: null, lat: null, lng: null }
+
+  let address: string | null = null
+  try {
+    const decoded = (JSON.parse(`"${m[1]}"`) as string).replace(/\s+/g, ' ').trim()
+    address = decoded.length > 0 ? decoded.slice(0, 240) : null
+  } catch {
+    address = null
+  }
+
+  const lat = Number.parseFloat(m[2])
+  const lng = Number.parseFloat(m[3])
+  // Reject the (0,0) placeholder and any out-of-range pair.
+  const valid =
+    Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0)
+  return { address, lat: valid ? lat : null, lng: valid ? lng : null }
 }
 
 // --- small html helpers ------------------------------------------------------

@@ -38,6 +38,12 @@ describe('parseListing — Grozny complex', () => {
     expect(parsed.delivery).toBe('Сдача: 2026')
   })
 
+  test('map marker yields address and coordinates', () => {
+    expect(parsed.address).toBe('Грозный, проспект Путина')
+    expect(parsed.lat).toBeCloseTo(43.3245, 3)
+    expect(parsed.lng).toBeCloseTo(45.6681, 3)
+  })
+
   test('installment surfaces as a badge', () => {
     expect(parsed.badges).toEqual(['Рассрочка'])
   })

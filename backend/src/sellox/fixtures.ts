@@ -57,6 +57,7 @@ export const GROZNY_HTML = `<!doctype html><html><head>
   <div class="area">от 36 м²</div>
   <img src="https://sellox.ru/wp-content/uploads/2024/07/Rivera-1.webp" />
 </aside>
+<script>var houzez_map = {"markers":[{"address":"Грозный, проспект Путина","lat":"43.324501921427","lng":"45.668103437383"}]};</script>
 </body></html>`
 
 // Dubai complex: actually foreign-priced, so it resolves to AE/DUBAI/USD.

@@ -146,6 +146,9 @@ function toCreateRequest(parsed: ParsedComplex): CreateComplexRequest {
     badges: parsed.badges,
     priceFrom: parsed.priceFrom,
     areaFrom: parsed.areaFrom,
+    address: parsed.address,
+    lat: parsed.lat,
+    lng: parsed.lng,
   }
 }
 
