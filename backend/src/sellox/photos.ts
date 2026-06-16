@@ -29,6 +29,22 @@ export type MirrorOptions = {
   // Sub-path under the complex folder, e.g. "plans" for floor plans. Keeps
   // photos and plans in separate, predictable locations on disk.
   subdir?: string
+  // SSRF allowlist: only these hosts are fetched server-side. The URL list comes
+  // from untrusted third-party HTML, so the host check lives here at the fetch
+  // boundary rather than relying on the parser's source regex two layers up.
+  allowedHosts?: ReadonlySet<string>
+}
+
+// sellox.ru is the only host the importer ever mirrors from.
+const SELLOX_HOSTS: ReadonlySet<string> = new Set(['sellox.ru', 'www.sellox.ru'])
+
+function isAllowedHost(url: string, allowed: ReadonlySet<string>): boolean {
+  try {
+    const { protocol, hostname } = new URL(url)
+    return (protocol === 'https:' || protocol === 'http:') && allowed.has(hostname.toLowerCase())
+  } catch {
+    return false
+  }
 }
 
 // Downloads each image and re-uploads it under a stable, per-complex key. Stable
@@ -40,6 +56,7 @@ export async function mirrorPhotos(
   options: MirrorOptions = {},
 ): Promise<MirrorResult> {
   const fetcher = options.fetcher ?? defaultPhotoFetcher
+  const allowedHosts = options.allowedHosts ?? SELLOX_HOSTS
   const prefix = options.subdir ? `complexes/sellox/${slug}/${options.subdir}` : `complexes/sellox/${slug}`
   const photos: string[] = []
   let mirrored = 0
@@ -47,6 +64,13 @@ export async function mirrorPhotos(
 
   for (let index = 0; index < urls.length; index += 1) {
     const url = urls[index]
+    // Never issue a server-side fetch to a host outside the allowlist; keep the
+    // original URL so the gallery still renders, but don't mirror it.
+    if (!isAllowedHost(url, allowedHosts)) {
+      photos.push(url)
+      failed += 1
+      continue
+    }
     try {
       const { bytes, contentType } = await fetcher(url)
       const ext = extensionForContentType(contentType) ?? extensionFromUrl(url) ?? 'jpg'

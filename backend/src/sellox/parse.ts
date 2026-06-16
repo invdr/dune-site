@@ -137,13 +137,14 @@ function extractDescription(html: string, main: string): string | null {
 function extractPriceFrom(main: string): number | null {
   const text = decodeEntities(main)
   const perMeter = text.match(/([\d][\d\s.,]*)\s*(?:₽|руб[а-я.]*)\s*\/?\s*(?:м²|кв\.?\s*м)/i)
-  // Fallbacks: a ruble total, then a foreign ($/USD/AED) total for Dubai stock.
-  const total =
+  // Per-m² wins; fall back to a ruble total, then a foreign ($/USD/AED) total
+  // for Dubai stock.
+  const priceMatch =
     perMeter ??
     text.match(/от\s*([\d][\d\s.,]*)\s*(?:₽|руб[а-я.]*)/i) ??
     text.match(/от\s*([\d][\d\s.,]*)\s*(?:\$|usd|aed|дирхам[а-я]*)/i)
-  if (!total) return null
-  const digits = total[1].replace(/[\s.,]/g, '')
+  if (!priceMatch) return null
+  const digits = priceMatch[1].replace(/[\s.,]/g, '')
   const value = Number.parseInt(digits, 10)
   return Number.isFinite(value) && value > 0 && value <= 2_000_000_000 ? value : null
 }

@@ -81,27 +81,32 @@ async function importOne(db: DbClient, url: string, options: ImportOptions): Pro
     return { url, slug: slugFromUrl(url), name: '', action: 'failed', reason: message(error) }
   }
 
-  // Mirror images into our own storage before persisting, so saved URLs point
-  // at us rather than sellox.ru. A mirror failure must not fail the import — the
-  // mirror itself falls back to the original URL per image.
-  if (options.mirrorPhotos) {
-    try {
-      const mirror = options.mirrorPhotos
-      const [photos, floorPlans] = await Promise.all([
-        parsed.photos.length > 0 ? mirror(parsed.slug, parsed.photos, 'photo') : Promise.resolve(parsed.photos),
-        parsed.floorPlans.length > 0 ? mirror(parsed.slug, parsed.floorPlans, 'plan') : Promise.resolve(parsed.floorPlans),
-      ])
-      parsed = { ...parsed, photos, floorPlans }
-    } catch (error) {
-      options.log?.(`  ! photo mirror failed for ${parsed.slug}, keeping remote URLs — ${message(error)}`)
-    }
-  }
-
+  // Validate the parsed shape before any expensive side effect: mirroring
+  // uploads blobs to our bucket, so a row that zod would reject must never get
+  // that far and strand orphaned objects.
   let payload
   try {
     payload = createComplexSchema.parse(toCreateRequest(parsed))
   } catch (error) {
     return { url, slug: parsed.slug, name: parsed.name, action: 'failed', reason: message(error) }
+  }
+
+  // Mirror images into our own storage so saved URLs point at us rather than
+  // sellox.ru. A mirror failure must not fail the import — the mirror itself
+  // falls back to the original URL per image.
+  if (options.mirrorPhotos) {
+    try {
+      const mirror = options.mirrorPhotos
+      const [photos, floorPlans] = await Promise.all([
+        payload.photos.length > 0 ? mirror(payload.slug, payload.photos, 'photo') : Promise.resolve(payload.photos),
+        payload.floorPlans.length > 0
+          ? mirror(payload.slug, payload.floorPlans, 'plan')
+          : Promise.resolve(payload.floorPlans),
+      ])
+      payload = { ...payload, photos, floorPlans }
+    } catch (error) {
+      options.log?.(`  ! photo mirror failed for ${payload.slug}, keeping remote URLs — ${message(error)}`)
+    }
   }
 
   const base = { url, slug: payload.slug, name: payload.name }

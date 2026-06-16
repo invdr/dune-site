@@ -89,4 +89,29 @@ describe('mirrorPhotos', () => {
       'https://sellox.ru/bad.webp',
     ])
   })
+
+  test('a URL outside the host allowlist is never fetched and is kept unmirrored', async () => {
+    const { service } = fakeStorage()
+    const fetched: string[] = []
+    const fetcher: PhotoFetcher = async (url) => {
+      fetched.push(url)
+      return { bytes: new Uint8Array([1]), contentType: 'image/webp' }
+    }
+
+    const result = await mirrorPhotos(
+      service,
+      'zhk-z',
+      ['https://evil.example.com/x.webp', 'https://sellox.ru/ok.webp'],
+      { fetcher },
+    )
+
+    // The off-allowlist host must never reach the server-side fetcher (SSRF guard).
+    expect(fetched).toEqual(['https://sellox.ru/ok.webp'])
+    expect(result.photos).toEqual([
+      'https://evil.example.com/x.webp',
+      'https://cdn.example.com/complexes/sellox/zhk-z/02.webp',
+    ])
+    expect(result.mirrored).toBe(1)
+    expect(result.failed).toBe(1)
+  })
 })

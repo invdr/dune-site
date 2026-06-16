@@ -94,6 +94,34 @@ describe('parseListing — Grozny complex', () => {
   })
 })
 
+describe('parseListing — floor-plan classification signals', () => {
+  // A focused page: a benign gallery image and a "план"-named image above the
+  // heading, plus an arbitrarily-named image under it.
+  const html = `<!doctype html><html><head>
+<meta property="og:image" content="https://sellox.ru/wp-content/uploads/hero.webp" />
+</head><body><main>
+  <h1>ЖК Сигнал</h1>
+  <img src="https://sellox.ru/wp-content/uploads/gallery-1.webp" />
+  <img src="https://sellox.ru/wp-content/uploads/план-фасада.webp" />
+  <h2>Планировки</h2>
+  <img src="https://sellox.ru/wp-content/uploads/DSC_0001.webp" />
+</main></body></html>`
+  const parsed = parseListing(html, 'https://sellox.ru/property/zhk-signal/')
+
+  test('an arbitrarily-named image under the heading is a plan (position wins)', () => {
+    expect(parsed.floorPlans.some((p) => p.includes('DSC_0001'))).toBe(true)
+  })
+
+  test('a "план"-named image above the heading is a plan (filename hint as fallback)', () => {
+    expect(parsed.floorPlans.some((p) => p.includes('%D1%84%D0%B0%D1%81%D0%B0%D0%B4%D0%B0'))).toBe(true)
+  })
+
+  test('a benign gallery image above the heading stays a photo, never swept into plans', () => {
+    expect(parsed.photos.some((p) => p.includes('gallery-1'))).toBe(true)
+    expect(parsed.floorPlans.some((p) => p.includes('gallery-1'))).toBe(false)
+  })
+})
+
 describe('parseListing — geography keys off currency', () => {
   test('foreign-priced Dubai listing → AE / DUBAI / USD', () => {
     const parsed = parseListing(DUBAI_HTML, 'https://sellox.ru/property/dubai-marina/')
