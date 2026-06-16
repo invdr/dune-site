@@ -9,14 +9,22 @@ const params = Astro.url.searchParams
 const sort = params.get('sort') ?? 'newest'
 const city = (params.get('city') ?? '').trim()
 const q = (params.get('q') ?? '').trim()
+const premium = params.get('premium') === 'true'
 const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
 
 const [settings, result] = await Promise.all([
   getPublicSettings(),
-  listComplexes({ sort, city: city || undefined, q: q || undefined, page, limit: 24 }),
+  listComplexes({
+    sort,
+    city: city || undefined,
+    q: q || undefined,
+    premium: premium || undefined,
+    page,
+    limit: 24,
+  }),
 ])
 
-const hasFilters = q !== '' || city !== ''
+const hasFilters = q !== '' || city !== '' || premium
 
 const gridHtml = result.items.map((c) => complexCardHtml(c)).join('')
 
@@ -91,9 +99,13 @@ function pageItems(current: number, count: number): Array<number | 'gap'> {
           />
         </div>
         {city && <input type="hidden" name="city" value={city} />}
+        <label class="zhk-toggle">
+          <input type="checkbox" name="premium" value="true" checked={premium} data-autosubmit />
+          <span>Премиум</span>
+        </label>
         <div class="zhk-sort">
           <label class="muted hide-mobile" for="zhkSort">Сортировка:</label>
-          <select id="zhkSort" name="sort">
+          <select id="zhkSort" name="sort" data-autosubmit>
             {sorts.map((s) => (
               <option value={s.value} selected={sort === s.value}>{s.label}</option>
             ))}
@@ -157,3 +169,16 @@ function pageItems(current: number, count: number): Array<number | 'gap'> {
     </section>
   </main>
 </Base>
+
+<script>
+  // Sort/premium changes apply immediately; the search text still submits on
+  // Enter or the "Применить" button. Resets paging by dropping `page` so a
+  // filtered result always starts on the first page.
+  const form = document.querySelector<HTMLFormElement>('.zhk-bar')
+  form?.querySelectorAll<HTMLElement>('[data-autosubmit]').forEach((el) => {
+    el.addEventListener('change', () => {
+      form.querySelector<HTMLInputElement>('input[name="page"]')?.remove()
+      form.requestSubmit()
+    })
+  })
+</script>

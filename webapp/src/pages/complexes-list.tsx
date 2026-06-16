@@ -3,7 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon, Delete02Icon, DownloadSquare01Icon, PencilEdit02Icon } from '@hugeicons/core-free-icons'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import type { AdminComplexListQuery, PropertyStatus } from '@dune/contracts'
+import type { AdminComplexListQuery, ComplexDto, PropertyStatus } from '@dune/contracts'
 
 import { LoadingRow, PageContainer, PageHeader } from '@/components/admin/page'
 import {
@@ -27,6 +27,17 @@ import { useBulkCreateComplexes, useComplexes, useDeleteComplex } from '@/lib/ad
 import { propertyStatuses, statusBadge, statusLabels } from '@/lib/labels'
 
 const priceFormatter = new Intl.NumberFormat('ru-RU')
+
+// Storefront-visible content an editor still needs to fill in. Surfaced as chips
+// so the gaps (especially missing floor plans) are obvious at a glance.
+function contentGaps(complex: ComplexDto): string[] {
+  const gaps: string[] = []
+  if (complex.photos.length === 0) gaps.push('фото')
+  if (complex.floorPlans.length === 0) gaps.push('планировки')
+  if (complex.pricePerMeterFrom == null && complex.priceFrom == null) gaps.push('цена')
+  if (!complex.description) gaps.push('описание')
+  return gaps
+}
 
 export function ComplexesListPage() {
   const [query, setQuery] = useState<Partial<AdminComplexListQuery>>({ page: 1, limit: 20 })
@@ -128,6 +139,7 @@ export function ComplexesListPage() {
                 <TableHead>ЖК</TableHead>
                 <TableHead>Город</TableHead>
                 <TableHead>Статус</TableHead>
+                <TableHead>Контент</TableHead>
                 <TableHead className="text-right">Квартир</TableHead>
                 <TableHead className="text-right">Цена от</TableHead>
                 <TableHead className="w-24" />
@@ -150,6 +162,24 @@ export function ComplexesListPage() {
                   <TableCell>{complex.city}</TableCell>
                   <TableCell>
                     <Badge variant={statusBadge[complex.status]}>{statusLabels[complex.status]}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const gaps = contentGaps(complex)
+                      return gaps.length === 0 ? (
+                        <Typography as="span" variant="bodyXs" tone="muted">
+                          Готово
+                        </Typography>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {gaps.map((gap) => (
+                            <Badge key={gap} variant="outline" className="border-amber-300 text-amber-700">
+                              нет {gap}
+                            </Badge>
+                          ))}
+                        </div>
+                      )
+                    })()}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{complex.unitCount}</TableCell>
                   <TableCell className="text-right tabular-nums">

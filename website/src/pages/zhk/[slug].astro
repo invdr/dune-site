@@ -5,7 +5,7 @@ import Base from '../../layouts/Base.astro'
 import LeadForm from '../../components/LeadForm.astro'
 import { getComplex, getPublicSettings } from '../../lib/api'
 import { cardHtml } from '../../lib/card'
-import { complexHeadline, resolvePlaceholderTone } from '../../lib/complexCard'
+import { complexFavoriteId, complexHeadline, resolvePlaceholderTone } from '../../lib/complexCard'
 import { metaByDirection } from '../../lib/directions'
 import { ICONS } from '../../lib/icons'
 import { phHtml } from '../../lib/placeholder'
@@ -194,6 +194,9 @@ const mapNote = complex.address ?? locText
           {complex.delivery && <div class="price-card__permeter">Срок сдачи: {complex.delivery}</div>}
           <a class="btn btn--primary btn--block" href="#lead">Оставить заявку</a>
           {contactTel && <a class="btn btn--ghost btn--block" href={contactTel}>Заказать звонок</a>}
+          <button class="btn btn--ghost btn--block" type="button" data-fav={complexFavoriteId(complex.slug)} aria-pressed="false">
+            <Fragment set:html={ICONS.heart} /> В избранное
+          </button>
         </div>
       </aside>
     </div>

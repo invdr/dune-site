@@ -301,6 +301,9 @@
   border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--ink-50)}
 .zhk-search:focus-within{border-color:var(--bordo)}
 .zhk-search__input{flex:1;border:0;outline:0;background:transparent;font-size:14px;color:var(--ink)}
+.zhk-toggle{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;font-size:14px;cursor:pointer;white-space:nowrap}
+.zhk-toggle input{accent-color:var(--bordo);width:16px;height:16px;cursor:pointer}
 .zhk-sort{display:flex;align-items:center;gap:10px}
 .zhk-sort label{font-size:13px}
 .zhk-sort select{height:44px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 14px;font-size:14px;background:#fff;cursor:pointer}
