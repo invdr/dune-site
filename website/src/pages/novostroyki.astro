@@ -117,13 +117,19 @@ function pageItems(current: number, count: number): Array<number | 'gap'> {
 
       <div class="catalog__count zhk-count">{countLabel}</div>
 
-      {result.total > 0 ? (
+      {result.items.length > 0 ? (
         <div class="zhk-grid" set:html={gridHtml}></div>
       ) : hasFilters ? (
         <div class="catalog__empty">
           <b>Ничего не найдено</b>
           <p class="muted">По запросу «{q || city}» нет жилых комплексов. Измените запрос или сбросьте фильтры.</p>
           <a class="btn btn--ghost btn--sm" href="/novostroyki">Сбросить фильтры</a>
+        </div>
+      ) : page > 1 ? (
+        <div class="catalog__empty">
+          <b>Страница пуста</b>
+          <p class="muted">Похоже, такой страницы каталога нет. Вернитесь к началу списка.</p>
+          <a class="btn btn--ghost btn--sm" href="/novostroyki">К началу каталога</a>
         </div>
       ) : (
         <div class="catalog__empty">
@@ -172,13 +178,10 @@ function pageItems(current: number, count: number): Array<number | 'gap'> {
 
 <script>
   // Sort/premium changes apply immediately; the search text still submits on
-  // Enter or the "Применить" button. Resets paging by dropping `page` so a
-  // filtered result always starts on the first page.
+  // Enter or the "Применить" button. The form carries no `page` field, so a GET
+  // submit rebuilds the query without it and the result starts on page one.
   const form = document.querySelector<HTMLFormElement>('.zhk-bar')
   form?.querySelectorAll<HTMLElement>('[data-autosubmit]').forEach((el) => {
-    el.addEventListener('change', () => {
-      form.querySelector<HTMLInputElement>('input[name="page"]')?.remove()
-      form.requestSubmit()
-    })
+    el.addEventListener('change', () => form.requestSubmit())
   })
 </script>

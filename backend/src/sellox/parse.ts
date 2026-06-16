@@ -182,6 +182,16 @@ const HEADING_RE = /<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi
 // so a filename test alone misses most of them. The reliable signal is the
 // section itself: locate the "Планировки" heading and treat everything from it
 // up to the next heading as the floor-plan region. Returns null when absent.
+//
+// Two deliberate constraints keep this precise:
+//   1. Only real <h1>–<h6> headings count. Matching the bare word would
+//      misfire on marketing copy ("…удобными планировками…"), flipping every
+//      following image into a plan. A genuine section title is always a heading.
+//   2. The gallery sits *above* the description/plans, and the only media after
+//      the plans block on these pages is theme chrome (denylisted) or a JS map
+//      (no <img>); the next-heading bound then closes the region before the
+//      "Расположение"/related sections. So plans are effectively the terminal
+//      image block — non-plan photos are not swept in.
 function floorPlanRegion(main: string): { start: number; end: number } | null {
   const headings = [...main.matchAll(HEADING_RE)]
   for (let i = 0; i < headings.length; i++) {
