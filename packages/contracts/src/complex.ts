@@ -136,6 +136,9 @@ export type ComplexSort = z.infer<typeof complexSortSchema>
 
 // Comma-separated multi-value query param (e.g. `features=Бассейн,Паркинг`).
 // Parsed into a trimmed, de-duplicated string list, or undefined when empty.
+// NOTE: values must not contain commas — facet labels (features/delivery) are
+// short and comma-free in practice; if that ever changes, switch the transport
+// to repeated params instead of adding an escaping scheme here.
 const csvListSchema = z
   .string()
   .optional()

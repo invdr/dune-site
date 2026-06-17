@@ -1,7 +1,7 @@
 import type { ComplexDto } from '@dune/contracts'
 
 import { metaByDirection } from './directions'
-import { escapeHtml, formatRub } from './format'
+import { escapeHtml, formatDelivery, formatRub } from './format'
 import { ICONS } from './icons'
 import { phHtml } from './placeholder'
 
@@ -66,7 +66,7 @@ export function complexCardHtml(c: ComplexDto, opts: ComplexCardOptions = {}): s
   const facts: { b: string; s: string }[] = []
   if (c.areaFrom != null) facts.push({ b: `от ${c.areaFrom} м²`, s: 'площадь' })
   if (c.unitCount > 0) facts.push({ b: String(c.unitCount), s: 'в продаже' })
-  if (c.delivery) facts.push({ b: c.delivery, s: 'сдача' })
+  if (c.delivery) facts.push({ b: formatDelivery(c.delivery), s: 'сдача' })
   const metaCells = facts
     .slice(0, 3)
     .map((f) => `<div><b>${escapeHtml(f.b)}</b><span>${escapeHtml(f.s)}</span></div>`)

@@ -29,24 +29,42 @@ export class ComplexService {
 
   async list(query: ComplexListQuery | AdminComplexListQuery, options: ListOptions) {
     const where = this.buildWhere(query, options)
-    const skip = (query.page - 1) * query.limit
+    const orderBy = this.buildOrderBy(query.sort)
+    const toDtos = (rows: Complex[], unitsByName: Map<string, UnitFacts[]>) =>
+      rows.map((c) => toComplexDto(c, this.aggregate(c, unitsByName.get(normalizeComplexKey(c.name)) ?? [])))
 
-    const [items, total] = await this.db.$transaction([
-      this.db.complex.findMany({ where, orderBy: this.buildOrderBy(query.sort), skip, take: query.limit }),
-      this.db.complex.count({ where }),
-    ])
-
-    // One query for every linked published unit across the whole page, grouped
-    // in memory — price-per-m² is min(price/area), not a SQL aggregate.
-    const unitsByName = await this.unitFactsByName(items.map((c) => c.name))
-
-    return {
-      items: items.map((c) => toComplexDto(c, this.aggregate(c, unitsByName.get(normalizeComplexKey(c.name)) ?? []))),
-      total,
-      page: query.page,
-      limit: query.limit,
-      pageCount: Math.max(1, Math.ceil(total / query.limit)),
+    // ₽/m² bounds filter the *displayed* per-meter headline, which is derived
+    // from linked units (min(price/area)) — not a column — so it can't be a SQL
+    // predicate. Without a price bound we paginate in SQL (fast path).
+    if (query.priceMin == null && query.priceMax == null) {
+      const skip = (query.page - 1) * query.limit
+      const [items, total] = await this.db.$transaction([
+        this.db.complex.findMany({ where, orderBy, skip, take: query.limit }),
+        this.db.complex.count({ where }),
+      ])
+      const unitsByName = await this.unitFactsByName(items.map((c) => c.name))
+      return this.paginate(toDtos(items, unitsByName), total, query)
     }
+
+    // Price-filtered path: fetch every match (already sorted), build the DTOs,
+    // then filter and slice on the same per-meter value the cards show, so the
+    // filter never disagrees with the visible price. Cheap at the current
+    // catalog size — `unitFactsByName` already scans all units regardless.
+    const rows = await this.db.complex.findMany({ where, orderBy })
+    const unitsByName = await this.unitFactsByName(rows.map((c) => c.name))
+    const filtered = toDtos(rows, unitsByName).filter((dto) => {
+      const perMeter = dto.pricePerMeterFrom
+      if (perMeter == null) return false
+      if (query.priceMin != null && perMeter < query.priceMin) return false
+      if (query.priceMax != null && perMeter > query.priceMax) return false
+      return true
+    })
+    const start = (query.page - 1) * query.limit
+    return this.paginate(filtered.slice(start, start + query.limit), filtered.length, query)
+  }
+
+  private paginate<T>(items: T[], total: number, query: { page: number; limit: number }) {
+    return { items, total, page: query.page, limit: query.limit, pageCount: Math.max(1, Math.ceil(total / query.limit)) }
   }
 
   // Distinct facet values across published complexes for the new-builds filter
@@ -256,17 +274,11 @@ export class ComplexService {
     if (query.city) where.city = { contains: query.city, mode: 'insensitive' }
     if (query.premium !== undefined) where.premium = query.premium
     // Facet filters: match every selected feature; any selected delivery date or
-    // developer. Price bounds run against the stored ₽/m² headline (`priceFrom`);
-    // a complex with no stored price is excluded once a bound is set.
+    // developer. (₽/m² bounds are applied in `list` against the computed headline,
+    // not here, since that value isn't a column.)
     if (query.features?.length) where.features = { hasEvery: query.features }
     if (query.delivery?.length) where.delivery = { in: query.delivery }
     if (query.developer?.length) where.developer = { in: query.developer }
-    if (query.priceMin != null || query.priceMax != null) {
-      where.priceFrom = {
-        ...(query.priceMin != null ? { gte: query.priceMin } : {}),
-        ...(query.priceMax != null ? { lte: query.priceMax } : {}),
-      }
-    }
     if (query.q) {
       where.OR = [
         { name: { contains: query.q, mode: 'insensitive' } },

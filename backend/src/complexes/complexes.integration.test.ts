@@ -204,16 +204,28 @@ maybeDescribe('complex API integration', () => {
     const token = await authToken()
     await createComplex(token, { slug: 'zhk-pool', name: 'ЖК Pool', delivery: '2026', priceFrom: 80_000, developer: 'СК Альфа', features: ['Бассейн', 'Паркинг'] })
     await createComplex(token, { slug: 'zhk-park', name: 'ЖК Park', delivery: '2027', priceFrom: 120_000, developer: 'СК Бета', features: ['Паркинг'] })
+    // Unit-linked complex with NO stored priceFrom: its displayed ₽/м² is the
+    // min over units (4.5M / 50 = 90 000), which is what the price filter must use.
+    await createComplex(token, { slug: 'zhk-units', name: 'ЖК Units' })
+    await prisma.property.create({
+      data: {
+        slug: 'units-1', direction: 'NEW', type: 'APARTMENT', status: 'PUBLISHED',
+        title: 'Студия', area: 50, price: 4_500_000, city: 'Грозный', complex: 'ЖК Units',
+      },
+    })
 
     const slugs = async (qs: string) =>
-      ((await (await app.request(`/api/complexes${qs}`)).json()).items as { slug: string }[]).map((c) => c.slug)
+      ((await (await app.request(`/api/complexes${qs}`)).json()).items as { slug: string }[]).map((c) => c.slug).sort()
 
     // hasEvery: only the complex carrying BOTH features.
     expect(await slugs(`?features=${encodeURIComponent('Бассейн,Паркинг')}`)).toEqual(['zhk-pool'])
     // delivery IN [2027].
     expect(await slugs('?delivery=2027')).toEqual(['zhk-park'])
-    // ₽/м² ≤ 100 000 (filters the stored headline).
-    expect(await slugs('?priceMax=100000')).toEqual(['zhk-pool'])
+    // ₽/м² ≤ 100 000 keeps the 80k stored and the 90k unit-derived, drops 120k.
+    expect(await slugs('?priceMax=100000')).toEqual(['zhk-pool', 'zhk-units'])
+    // ≥ 110 000 keeps only the 120k; the 90k unit-linked complex is excluded on
+    // its *computed* value, proving the filter doesn't read the (null) column.
+    expect(await slugs('?priceMin=110000')).toEqual(['zhk-park'])
     // developer exact.
     expect(await slugs(`?developer=${encodeURIComponent('СК Бета')}`)).toEqual(['zhk-park'])
   })

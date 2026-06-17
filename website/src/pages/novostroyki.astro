@@ -287,5 +287,28 @@ function pageItems(current: number, count: number): Array<number | 'gap'> {
         if (field) field.value = values.join(',')
       })
     })
+
+    // Keep the submitted URL clean: drop empty fields so they don't serialise as
+    // `?features=&delivery=&priceMin=` noise.
+    form.addEventListener('submit', () => {
+      form.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name]').forEach((el) => {
+        if (el.value === '') el.disabled = true
+      })
+    })
   }
+
+  // Popover hygiene for the native <details> filters: only one open at a time,
+  // and close on outside click or Escape.
+  const pops = Array.from(document.querySelectorAll<HTMLDetailsElement>('.zhk-pop'))
+  pops.forEach((d) =>
+    d.addEventListener('toggle', () => {
+      if (d.open) pops.forEach((other) => other !== d && (other.open = false))
+    }),
+  )
+  document.addEventListener('pointerdown', (e) => {
+    pops.forEach((d) => d.open && !d.contains(e.target as Node) && (d.open = false))
+  })
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') pops.forEach((d) => (d.open = false))
+  })
 </script>
