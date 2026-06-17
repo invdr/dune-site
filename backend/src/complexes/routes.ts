@@ -3,6 +3,7 @@ import {
   apiErrorSchema,
   bulkCreateComplexesResultSchema,
   complexDetailResponseSchema,
+  complexFacetsResponseSchema,
   complexListQuerySchema,
   complexListResponseSchema,
   complexResponseSchema,
@@ -52,6 +53,19 @@ const listPublicRoute = createRoute({
   },
 })
 
+// Static `/facets` must be registered before `/{slug}`, otherwise the slug
+// param route would capture it.
+const facetsRoute = createRoute({
+  method: 'get',
+  path: '/facets',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: complexFacetsResponseSchema } },
+      description: 'Distinct filter facets across published complexes',
+    },
+  },
+})
+
 const getPublicRoute = createRoute({
   method: 'get',
   path: '/{slug}',
@@ -68,6 +82,11 @@ export function createPublicComplexRoutes() {
   routes.openapi(listPublicRoute, async (c) => {
     const result = await c.get('complexService').list(c.req.valid('query'), { publicOnly: true })
     return c.json(result, 200)
+  })
+
+  routes.openapi(facetsRoute, async (c) => {
+    const facets = await c.get('complexService').facets()
+    return c.json(facets, 200)
   })
 
   routes.openapi(getPublicRoute, async (c) => {

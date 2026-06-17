@@ -1,6 +1,7 @@
 import type {
   ComplexDetailDto,
   ComplexDto,
+  ComplexFacetsResponse,
   ComplexListResponse,
   CreateLeadRequest,
   HomeContentDto,
@@ -87,10 +88,24 @@ export async function listCities(): Promise<PropertyCityFacet[]> {
 export interface ComplexQuery {
   city?: string
   premium?: boolean
+  features?: string[]
+  delivery?: string[]
+  developer?: string[]
+  priceMin?: number
+  priceMax?: number
   q?: string
   sort?: string
   page?: number
   limit?: number
+}
+
+export async function getComplexFacets(): Promise<ComplexFacetsResponse> {
+  try {
+    return await getJson<ComplexFacetsResponse>('/api/complexes/facets')
+  } catch (error) {
+    console.error('[api] getComplexFacets failed', error)
+    return { cities: [], features: [], deliveries: [], developers: [] }
+  }
 }
 
 export async function listComplexes(query: ComplexQuery = {}): Promise<ComplexListResponse> {

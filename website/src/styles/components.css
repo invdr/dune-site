@@ -306,18 +306,42 @@
 .catalog__empty .btn{margin-top:16px}
 
 /* residential-complex (ЖК) catalog */
-.zhk-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
-.zhk-search{flex:1 1 280px;display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;
+.zhk-bar{position:sticky;top:84px;z-index:40;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:12px 0;margin-bottom:16px;background:var(--paper);border-bottom:1px solid var(--line)}
+.zhk-search{flex:1 1 240px;display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;
   border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--ink-50)}
 .zhk-search:focus-within{border-color:var(--bordo)}
 .zhk-search__input{flex:1;border:0;outline:0;background:transparent;font-size:14px;color:var(--ink)}
+.zhk-select{height:44px;max-width:200px;border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:0 34px 0 14px;font-size:14px;background:#fff;appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2348070d' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 13px center}
 .zhk-toggle{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;
   border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;font-size:14px;cursor:pointer;white-space:nowrap}
 .zhk-toggle input{accent-color:var(--bordo);width:16px;height:16px;cursor:pointer}
-.zhk-sort{display:flex;align-items:center;gap:10px}
-.zhk-sort label{font-size:13px}
-.zhk-sort select{height:44px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 14px;font-size:14px;background:#fff;cursor:pointer}
+/* multi-select popover (срок сдачи, особенности) */
+.zhk-pop{position:relative}
+.zhk-pop__btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;list-style:none;cursor:pointer;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;font-size:14px;white-space:nowrap;color:var(--ink)}
+.zhk-pop__btn::-webkit-details-marker{display:none}
+.zhk-pop[open] .zhk-pop__btn{border-color:var(--bordo)}
+.zhk-pop__btn svg{transition:transform .2s}
+.zhk-pop[open] .zhk-pop__btn svg{transform:rotate(180deg)}
+.zhk-pop__panel{position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:220px;max-height:320px;overflow:auto;
+  display:flex;flex-direction:column;gap:2px;padding:8px;background:#fff;border:1px solid var(--line);
+  border-radius:var(--r-sm);box-shadow:var(--shadow-lg)}
+.zhk-pop__panel--wide{min-width:280px;display:grid;grid-template-columns:1fr 1fr;gap:2px}
+.zhk-pop__opt{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:14px;cursor:pointer}
+.zhk-pop__opt:hover{background:var(--paper)}
+.zhk-pop__opt input{accent-color:var(--bordo);width:16px;height:16px;flex:none;cursor:pointer}
+.zhk-pop__opt span{flex:1}
+.zhk-pop__opt em{font-style:normal;color:var(--ink-50);font-size:12px}
+/* price range (₽/m²) */
+.zhk-price{display:flex;align-items:center;gap:6px}
+.zhk-price__in{width:96px;height:44px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 10px;font-size:14px;background:#fff}
+.zhk-price__dash{color:var(--ink-50)}
 .zhk-count{margin-bottom:18px}
+@media(max-width:760px){.zhk-bar{top:68px}}
 .zhk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(16px,1.6vw,24px)}
 .zhk-pager{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:32px;flex-wrap:wrap}
 .zhk-pager__num,.zhk-pager__btn{display:inline-flex;align-items:center;justify-content:center;height:40px;

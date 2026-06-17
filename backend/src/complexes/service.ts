@@ -1,5 +1,6 @@
 import type {
   AdminComplexListQuery,
+  ComplexFacet,
   ComplexListQuery,
   CreateComplexPayload,
   UpdateComplexPayload,
@@ -45,6 +46,49 @@ export class ComplexService {
       page: query.page,
       limit: query.limit,
       pageCount: Math.max(1, Math.ceil(total / query.limit)),
+    }
+  }
+
+  // Distinct facet values across published complexes for the new-builds filter
+  // bar. Features are an array column, so aggregation is done in memory — cheap
+  // at the current catalog size, like the unit join above.
+  async facets(): Promise<{
+    cities: ComplexFacet[]
+    features: ComplexFacet[]
+    deliveries: ComplexFacet[]
+    developers: ComplexFacet[]
+  }> {
+    const rows = await this.db.complex.findMany({
+      where: { status: 'PUBLISHED' },
+      select: { city: true, features: true, delivery: true, developer: true },
+    })
+
+    const cities = new Map<string, number>()
+    const features = new Map<string, number>()
+    const deliveries = new Map<string, number>()
+    const developers = new Map<string, number>()
+    const bump = (map: Map<string, number>, value: string | null) => {
+      const v = value?.trim()
+      if (v) map.set(v, (map.get(v) ?? 0) + 1)
+    }
+
+    for (const r of rows) {
+      bump(cities, r.city)
+      bump(deliveries, r.delivery)
+      bump(developers, r.developer)
+      for (const f of r.features) bump(features, f)
+    }
+
+    const toFacets = (map: Map<string, number>): ComplexFacet[] =>
+      [...map.entries()]
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, 'ru'))
+
+    return {
+      cities: toFacets(cities),
+      features: toFacets(features),
+      deliveries: toFacets(deliveries),
+      developers: toFacets(developers),
     }
   }
 
@@ -211,6 +255,18 @@ export class ComplexService {
     if (query.country) where.country = query.country
     if (query.city) where.city = { contains: query.city, mode: 'insensitive' }
     if (query.premium !== undefined) where.premium = query.premium
+    // Facet filters: match every selected feature; any selected delivery date or
+    // developer. Price bounds run against the stored ₽/m² headline (`priceFrom`);
+    // a complex with no stored price is excluded once a bound is set.
+    if (query.features?.length) where.features = { hasEvery: query.features }
+    if (query.delivery?.length) where.delivery = { in: query.delivery }
+    if (query.developer?.length) where.developer = { in: query.developer }
+    if (query.priceMin != null || query.priceMax != null) {
+      where.priceFrom = {
+        ...(query.priceMin != null ? { gte: query.priceMin } : {}),
+        ...(query.priceMax != null ? { lte: query.priceMax } : {}),
+      }
+    }
     if (query.q) {
       where.OR = [
         { name: { contains: query.q, mode: 'insensitive' } },

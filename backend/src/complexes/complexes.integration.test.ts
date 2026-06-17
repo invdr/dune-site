@@ -181,4 +181,40 @@ maybeDescribe('complex API integration', () => {
     const total = await prisma.complex.count()
     expect(total).toBe(2)
   })
+
+  test('facets expose distinct published cities, features, deliveries and developers', async () => {
+    const token = await authToken()
+    await createComplex(token, { slug: 'zhk-a', name: 'ЖК A', city: 'Грозный', delivery: '2026', developer: 'СК Альфа', features: ['Бассейн', 'Паркинг'] })
+    await createComplex(token, { slug: 'zhk-b', name: 'ЖК B', city: 'Гудермес', delivery: '2026', features: ['Паркинг'] })
+    // A DRAFT complex must not leak its values into the public facets.
+    await createComplex(token, { slug: 'zhk-d', name: 'ЖК D', city: 'Аргун', status: 'DRAFT', features: ['Охрана'] })
+
+    const res = await app.request('/api/complexes/facets')
+    expect(res.status).toBe(200)
+    const facets = (await res.json()) as Record<'cities' | 'features' | 'deliveries' | 'developers', { value: string; count: number }[]>
+
+    expect(facets.cities.map((c) => c.value).sort()).toEqual(['Грозный', 'Гудермес'])
+    expect(facets.features.find((f) => f.value === 'Паркинг')?.count).toBe(2)
+    expect(facets.features.find((f) => f.value === 'Охрана')).toBeUndefined() // DRAFT excluded
+    expect(facets.deliveries.find((d) => d.value === '2026')?.count).toBe(2)
+    expect(facets.developers.map((d) => d.value)).toEqual(['СК Альфа'])
+  })
+
+  test('list filters by features (all), delivery (any), ₽/м² range and developer', async () => {
+    const token = await authToken()
+    await createComplex(token, { slug: 'zhk-pool', name: 'ЖК Pool', delivery: '2026', priceFrom: 80_000, developer: 'СК Альфа', features: ['Бассейн', 'Паркинг'] })
+    await createComplex(token, { slug: 'zhk-park', name: 'ЖК Park', delivery: '2027', priceFrom: 120_000, developer: 'СК Бета', features: ['Паркинг'] })
+
+    const slugs = async (qs: string) =>
+      ((await (await app.request(`/api/complexes${qs}`)).json()).items as { slug: string }[]).map((c) => c.slug)
+
+    // hasEvery: only the complex carrying BOTH features.
+    expect(await slugs(`?features=${encodeURIComponent('Бассейн,Паркинг')}`)).toEqual(['zhk-pool'])
+    // delivery IN [2027].
+    expect(await slugs('?delivery=2027')).toEqual(['zhk-park'])
+    // ₽/м² ≤ 100 000 (filters the stored headline).
+    expect(await slugs('?priceMax=100000')).toEqual(['zhk-pool'])
+    // developer exact.
+    expect(await slugs(`?developer=${encodeURIComponent('СК Бета')}`)).toEqual(['zhk-park'])
+  })
 })

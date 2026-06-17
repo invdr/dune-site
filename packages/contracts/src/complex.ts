@@ -134,6 +134,19 @@ export const complexSortSchema = z
 
 export type ComplexSort = z.infer<typeof complexSortSchema>
 
+// Comma-separated multi-value query param (e.g. `features=Бассейн,Паркинг`).
+// Parsed into a trimmed, de-duplicated string list, or undefined when empty.
+const csvListSchema = z
+  .string()
+  .optional()
+  .transform((value) => {
+    if (!value) return undefined
+    const items = [...new Set(value.split(',').map((s) => s.trim()).filter(Boolean))]
+    return items.length ? items : undefined
+  })
+
+const optionalQueryPrice = z.coerce.number().int().min(0).max(2_000_000_000).optional()
+
 const baseListQueryShape = {
   direction: propertyDirectionSchema.optional(),
   country: countrySchema.optional(),
@@ -142,6 +155,13 @@ const baseListQueryShape = {
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
     .optional(),
+  // Multi-select facet filters (match all selected features; any selected
+  // delivery date / developer). `priceMin`/`priceMax` bound the ₽/m² headline.
+  features: csvListSchema,
+  delivery: csvListSchema,
+  developer: csvListSchema,
+  priceMin: optionalQueryPrice,
+  priceMax: optionalQueryPrice,
   q: z.string().trim().min(1).max(120).optional(),
   sort: complexSortSchema,
   page: z.coerce.number().int().min(1).default(1),
@@ -156,6 +176,19 @@ export const adminComplexListQuerySchema = z.object({
   status: propertyStatusSchema.optional(),
 })
 export type AdminComplexListQuery = z.infer<typeof adminComplexListQuerySchema>
+
+// Facet options for the new-builds filter bar: distinct values across published
+// complexes, each with how many carry it, most common first.
+export const complexFacetSchema = z.object({ value: z.string(), count: z.number().int() })
+export type ComplexFacet = z.infer<typeof complexFacetSchema>
+
+export const complexFacetsResponseSchema = z.object({
+  cities: z.array(complexFacetSchema),
+  features: z.array(complexFacetSchema),
+  deliveries: z.array(complexFacetSchema),
+  developers: z.array(complexFacetSchema),
+})
+export type ComplexFacetsResponse = z.infer<typeof complexFacetsResponseSchema>
 
 export const complexListResponseSchema = z.object({
   items: z.array(complexSchema),

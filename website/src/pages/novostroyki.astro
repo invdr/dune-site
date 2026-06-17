@@ -2,8 +2,9 @@
 export const prerender = false
 
 import Base from '../layouts/Base.astro'
-import { getPublicSettings, listComplexes } from '../lib/api'
+import { getComplexFacets, getPublicSettings, listComplexes } from '../lib/api'
 import { complexCardHtml } from '../lib/complexCard'
+import { formatDelivery } from '../lib/format'
 
 const params = Astro.url.searchParams
 const sort = params.get('sort') ?? 'newest'
@@ -12,19 +13,41 @@ const q = (params.get('q') ?? '').trim()
 const premium = params.get('premium') === 'true'
 const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
 
-const [settings, result] = await Promise.all([
+const parseCsv = (key: string) =>
+  (params.get(key) ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+const selectedFeatures = parseCsv('features')
+const selectedDelivery = parseCsv('delivery')
+const developer = (params.get('developer') ?? '').trim()
+const priceMin = (params.get('priceMin') ?? '').trim()
+const priceMax = (params.get('priceMax') ?? '').trim()
+
+const [settings, facets, result] = await Promise.all([
   getPublicSettings(),
+  getComplexFacets(),
   listComplexes({
     sort,
     city: city || undefined,
     q: q || undefined,
     premium: premium || undefined,
+    features: selectedFeatures.length ? selectedFeatures : undefined,
+    delivery: selectedDelivery.length ? selectedDelivery : undefined,
+    developer: developer ? [developer] : undefined,
+    priceMin: priceMin ? Number(priceMin) : undefined,
+    priceMax: priceMax ? Number(priceMax) : undefined,
     page,
     limit: 24,
   }),
 ])
 
-const hasFilters = q !== '' || city !== '' || premium
+const hasFilters =
+  q !== '' ||
+  city !== '' ||
+  premium ||
+  developer !== '' ||
+  selectedFeatures.length > 0 ||
+  selectedDelivery.length > 0 ||
+  priceMin !== '' ||
+  priceMax !== ''
 
 const gridHtml = result.items.map((c) => complexCardHtml(c)).join('')
 
@@ -98,19 +121,80 @@ function pageItems(current: number, count: number): Array<number | 'gap'> {
             aria-label="Поиск по новостройкам"
           />
         </div>
-        {city && <input type="hidden" name="city" value={city} />}
+
+        {facets.cities.length > 1 && (
+          <select class="zhk-select" name="city" aria-label="Город" data-autosubmit>
+            <option value="">Все города</option>
+            {facets.cities.map((c) => (
+              <option value={c.value} selected={city === c.value}>{c.value}</option>
+            ))}
+          </select>
+        )}
+
+        {facets.deliveries.length > 0 && (
+          <details class="zhk-pop">
+            <summary class="zhk-pop__btn">
+              Срок сдачи{selectedDelivery.length > 0 ? ` · ${selectedDelivery.length}` : ''}
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+            </summary>
+            <div class="zhk-pop__panel">
+              {facets.deliveries.map((d) => (
+                <label class="zhk-pop__opt">
+                  <input type="checkbox" data-multi="delivery" value={d.value} checked={selectedDelivery.includes(d.value)} />
+                  <span>{formatDelivery(d.value)}</span><em>{d.count}</em>
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
+
+        {facets.features.length > 0 && (
+          <details class="zhk-pop">
+            <summary class="zhk-pop__btn">
+              Особенности{selectedFeatures.length > 0 ? ` · ${selectedFeatures.length}` : ''}
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+            </summary>
+            <div class="zhk-pop__panel zhk-pop__panel--wide">
+              {facets.features.map((f) => (
+                <label class="zhk-pop__opt">
+                  <input type="checkbox" data-multi="features" value={f.value} checked={selectedFeatures.includes(f.value)} />
+                  <span>{f.value}</span><em>{f.count}</em>
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
+
+        <div class="zhk-price">
+          <input type="number" class="zhk-price__in" name="priceMin" value={priceMin} min="0" step="1000" placeholder="₽/м² от" aria-label="Цена за м², от" />
+          <span class="zhk-price__dash">—</span>
+          <input type="number" class="zhk-price__in" name="priceMax" value={priceMax} min="0" step="1000" placeholder="до" aria-label="Цена за м², до" />
+        </div>
+
+        {facets.developers.length > 0 && (
+          <select class="zhk-select" name="developer" aria-label="Застройщик" data-autosubmit>
+            <option value="">Все застройщики</option>
+            {facets.developers.map((d) => (
+              <option value={d.value} selected={developer === d.value}>{d.value}</option>
+            ))}
+          </select>
+        )}
+
         <label class="zhk-toggle">
           <input type="checkbox" name="premium" value="true" checked={premium} data-autosubmit />
           <span>Премиум</span>
         </label>
-        <div class="zhk-sort">
-          <label class="muted hide-mobile" for="zhkSort">Сортировка:</label>
-          <select id="zhkSort" name="sort" data-autosubmit>
-            {sorts.map((s) => (
-              <option value={s.value} selected={sort === s.value}>{s.label}</option>
-            ))}
-          </select>
-        </div>
+
+        <select class="zhk-select" name="sort" aria-label="Сортировка" data-autosubmit>
+          {sorts.map((s) => (
+            <option value={s.value} selected={sort === s.value}>{s.label}</option>
+          ))}
+        </select>
+
+        {/* Hidden CSV mirrors of the multi-select popovers, kept in sync by the page script. */}
+        <input type="hidden" name="features" value={selectedFeatures.join(',')} data-multi-field="features" />
+        <input type="hidden" name="delivery" value={selectedDelivery.join(',')} data-multi-field="delivery" />
+
         <button class="btn btn--primary btn--sm" type="submit">Применить</button>
         {hasFilters && <a class="btn btn--ghost btn--sm" href="/novostroyki">Сбросить</a>}
       </form>
@@ -122,7 +206,11 @@ function pageItems(current: number, count: number): Array<number | 'gap'> {
       ) : hasFilters ? (
         <div class="catalog__empty">
           <b>Ничего не найдено</b>
-          <p class="muted">По запросу «{q || city}» нет жилых комплексов. Измените запрос или сбросьте фильтры.</p>
+          <p class="muted">
+            {q || city
+              ? `По запросу «${q || city}» нет жилых комплексов.`
+              : 'По выбранным фильтрам нет жилых комплексов.'} Измените параметры или сбросьте фильтры.
+          </p>
           <a class="btn btn--ghost btn--sm" href="/novostroyki">Сбросить фильтры</a>
         </div>
       ) : page > 1 ? (
@@ -177,11 +265,27 @@ function pageItems(current: number, count: number): Array<number | 'gap'> {
 </Base>
 
 <script>
-  // Sort/premium changes apply immediately; the search text still submits on
-  // Enter or the "Применить" button. The form carries no `page` field, so a GET
-  // submit rebuilds the query without it and the result starts on page one.
+  // The form carries no `page` field, so a GET submit rebuilds the query without
+  // it and the result starts on page one.
   const form = document.querySelector<HTMLFormElement>('.zhk-bar')
-  form?.querySelectorAll<HTMLElement>('[data-autosubmit]').forEach((el) => {
-    el.addEventListener('change', () => form.requestSubmit())
-  })
+  if (form) {
+    // City / sort / premium / developer apply immediately on change. Search text
+    // and the price range still apply on Enter or the "Применить" button.
+    form.querySelectorAll<HTMLElement>('[data-autosubmit]').forEach((el) => {
+      el.addEventListener('change', () => form.requestSubmit())
+    })
+    // Multi-select popovers (срок сдачи, особенности): mirror the checked values
+    // into the hidden CSV field; applied together via "Применить" so picking
+    // several options doesn't reload the page on every click.
+    form.querySelectorAll<HTMLInputElement>('[data-multi]').forEach((box) => {
+      box.addEventListener('change', () => {
+        const name = box.dataset.multi
+        const values = Array.from(
+          form.querySelectorAll<HTMLInputElement>(`[data-multi="${name}"]:checked`),
+        ).map((b) => b.value)
+        const field = form.querySelector<HTMLInputElement>(`[data-multi-field="${name}"]`)
+        if (field) field.value = values.join(',')
+      })
+    })
+  }
 </script>
