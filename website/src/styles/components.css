@@ -264,7 +264,7 @@
 .page-head__sub{margin-top:12px;color:rgba(255,255,255,.7);font-size:16px}
 
 .catalog{display:grid;grid-template-columns:300px 1fr;gap:clamp(24px,3vw,44px);align-items:start}
-.filters{position:sticky;top:104px;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:24px}
+.filters{position:sticky;top:calc(var(--header-h) + 20px);background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:24px}
 .filters__head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .filters__head h3{font-size:15px;font-weight:600}
 .filters__head .drawer__close{border-color:var(--line);color:var(--ink)}
@@ -306,7 +306,7 @@
 .catalog__empty .btn{margin-top:16px}
 
 /* residential-complex (ЖК) catalog */
-.zhk-bar{position:sticky;top:84px;z-index:40;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+.zhk-bar{position:sticky;top:var(--header-h);z-index:40;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   padding:12px 0;margin-bottom:16px;background:var(--paper);border-bottom:1px solid var(--line)}
 .zhk-search{flex:1 1 240px;display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;
   border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--ink-50)}
@@ -341,7 +341,7 @@
 .zhk-price__in{width:96px;height:44px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 10px;font-size:14px;background:#fff}
 .zhk-price__dash{color:var(--ink-50)}
 .zhk-count{margin-bottom:18px}
-@media(max-width:760px){.zhk-bar{top:68px}}
+/* .zhk-bar offset now follows --header-h automatically (68px on mobile). */
 .zhk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(16px,1.6vw,24px)}
 .zhk-pager{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:32px;flex-wrap:wrap}
 .zhk-pager__num,.zhk-pager__btn{display:inline-flex;align-items:center;justify-content:center;height:40px;
@@ -366,6 +366,7 @@
 @media (max-width:980px){
   .catalog{grid-template-columns:1fr}
   .filters{position:fixed;inset:0;z-index:90;border-radius:0;border:0;overflow:auto;
+    padding-top:calc(24px + env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom));
     transform:translateX(-100%);transition:transform .4s var(--ease);max-width:none}
   .filters.is-open{transform:none}
   .filters__head{position:sticky;top:0;background:#fff;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:0}
@@ -416,7 +417,7 @@
 .pdp__more-toggle::-webkit-details-marker{display:none}
 .pdp__more-toggle::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .2s}
 .pdp__more[open]>.pdp__more-toggle::after{transform:rotate(-135deg)}
-.pdp__aside{position:sticky;top:104px;display:flex;flex-direction:column;gap:18px}
+.pdp__aside{position:sticky;top:calc(var(--header-h) + 20px);display:flex;flex-direction:column;gap:18px}
 .price-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:28px;box-shadow:var(--shadow-sm)}
 .price-card__price{font-size:34px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
 .price-card__permeter{font-size:14px;color:var(--ink-50);margin-top:4px}
@@ -531,16 +532,18 @@ a,button,.chip,.search__tab,.tabs__btn,.card__fav,.burger,.drawer__close,
 
 /* Property-page photo lightbox */
 .gallery .ph{cursor:zoom-in}
-.lbox{position:fixed;inset:0;z-index:200;background:rgba(20,16,12,.93);display:flex;align-items:center;justify-content:center;padding:24px}
+.lbox{position:fixed;inset:0;z-index:200;background:rgba(20,16,12,.93);display:flex;align-items:center;justify-content:center;
+  padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))}
 .lbox[hidden]{display:none}
-.lbox__img{max-width:92vw;max-height:86vh;object-fit:contain;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
-.lbox__close{position:absolute;top:18px;right:20px;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:26px;line-height:1;cursor:pointer}
+/* dvh avoids the mobile address-bar "jump"; vh kept as a fallback for old engines */
+.lbox__img{max-width:92vw;max-height:86vh;max-height:86dvh;object-fit:contain;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.lbox__close{position:absolute;top:max(18px,env(safe-area-inset-top));right:max(20px,env(safe-area-inset-right));width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:26px;line-height:1;cursor:pointer}
 .lbox__nav{position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:30px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .lbox__prev{left:18px}
 .lbox__next{right:18px}
 .lbox__count{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:.04em}
 .lbox__nav:hover,.lbox__close:hover{background:rgba(255,255,255,.26)}
-@media(max-width:640px){.lbox__nav{width:42px;height:42px;font-size:24px}.lbox__prev{left:8px}.lbox__next{right:8px}}
+@media (max-width:640px){.lbox__nav{width:42px;height:42px;font-size:24px}.lbox__prev{left:8px}.lbox__next{right:8px}}
 
 /* Catalog filter select (City) */
 .filters .fselect{width:100%;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:var(--r);background:#fff;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}

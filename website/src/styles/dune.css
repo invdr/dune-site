@@ -33,6 +33,10 @@
   --container:1280px;
   --gut:clamp(20px,4vw,56px);
 
+  /* Sticky header height — single source for header-aware sticky offsets
+     (.filters, .zhk-bar, .pdp__aside). Overridden on mobile below. */
+  --header-h:84px;
+
   --ease:cubic-bezier(.22,.61,.36,1);
 
   --ff:"Montserrat",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -133,7 +137,7 @@ h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.01em;line-height:1.12}
   border-bottom:1px solid var(--line-light);
 }
 .site-header.is-scrolled{box-shadow:0 10px 30px -16px rgba(0,0,0,.5)}
-.site-header__top{display:flex;align-items:center;justify-content:space-between;height:84px}
+.site-header__top{display:flex;align-items:center;justify-content:space-between;height:var(--header-h)}
 .brand{display:flex;align-items:center;gap:14px;color:var(--sand)}
 .brand__mark{width:54px;height:auto;flex:none}
 .brand--sm .brand__mark{width:48px}
@@ -160,7 +164,9 @@ h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.01em;line-height:1.12}
 .drawer.is-open{display:block}
 .drawer__scrim{position:absolute;inset:0;background:rgba(25,25,25,.5);backdrop-filter:blur(2px)}
 .drawer__panel{position:absolute;top:0;right:0;height:100%;width:min(86vw,360px);
-  background:var(--bordo);color:#fff;padding:24px;display:flex;flex-direction:column;gap:6px;
+  background:var(--bordo);color:#fff;display:flex;flex-direction:column;gap:6px;
+  padding:calc(24px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right))
+    calc(24px + env(safe-area-inset-bottom)) 24px;
   transform:translateX(100%);transition:transform .4s var(--ease);overflow:auto}
 .drawer.is-open .drawer__panel{transform:none}
 .drawer__head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
@@ -284,8 +290,8 @@ html.js .fade-up:not(.in){opacity:0;transform:translateY(24px)}
   .footer-grid{grid-template-columns:1fr 1fr;gap:36px}
 }
 @media (max-width:760px){
+  :root{--header-h:68px}
   .header-phone{display:none}
-  .site-header__top{height:68px}
   .brand__mark{width:42px}
   .brand__word{font-size:17px;letter-spacing:.28em}
   .brand__sub{font-size:8px;letter-spacing:.32em}
