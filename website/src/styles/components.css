@@ -44,15 +44,24 @@
 /* hero showcase */
 .hero__showcase{position:relative;z-index:2;display:flex;flex-direction:column;gap:14px;
   justify-self:end;width:100%;max-width:380px}
-.hero__card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:var(--r);
-  overflow:hidden;backdrop-filter:blur(12px);box-shadow:var(--shadow-lg)}
-.hero__card-media{position:relative;aspect-ratio:16/10}
+.hero__card{display:block;text-decoration:none;background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.16);border-radius:var(--r);
+  overflow:hidden;backdrop-filter:blur(12px);box-shadow:var(--shadow-lg);
+  transition:transform .4s var(--ease),border-color .4s var(--ease),box-shadow .4s var(--ease)}
+.hero__card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.34);box-shadow:var(--shadow-xl,0 24px 60px rgba(0,0,0,.4))}
+.hero__card-media{position:relative;aspect-ratio:16/10;overflow:hidden}
+.hero__card .ph__photo{transition:transform .6s var(--ease)}
+.hero__card:hover .ph__photo{transform:scale(1.05)}
 .hero__card-badge{position:absolute;left:14px;top:14px;z-index:3}
 .hero__card-body{padding:18px 20px 20px}
 .hero__card-price{font-size:24px;font-weight:700;color:#fff;letter-spacing:-.01em}
 .hero__card-title{font-size:14px;color:rgba(255,255,255,.82);margin-top:4px}
 .hero__card-meta{display:flex;align-items:center;gap:11px;margin-top:14px;font-size:12px;color:rgba(255,255,255,.66)}
 .hero__card-meta i{width:1px;height:11px;background:rgba(255,255,255,.28);display:inline-block}
+.hero__card-go{display:inline-flex;align-items:center;gap:6px;margin-top:16px;
+  font-size:13px;font-weight:600;color:var(--sand,#e8d9b5)}
+.hero__card-go svg{width:16px;height:16px}
+.hero__card:hover .hero__card-go{gap:10px}
 .hero__trust{display:flex;gap:12px}
 .hero__trust-item{flex:1;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);
   border-radius:var(--r-sm);padding:14px 16px;
@@ -79,14 +88,15 @@
 /* ---------- SEARCH ---------- */
 .search{position:relative;z-index:3;margin-top:clamp(4px,0.8vw,10px);
   transform:translateY(18px)}
-.search__tabs{display:flex;gap:4px;padding:0 6px}
+.search__tabs{display:flex;gap:6px;padding:0 6px}
 .search__tab{
-  appearance:none;border:0;background:rgba(53,5,9,.86);backdrop-filter:blur(8px);color:rgba(255,255,255,.8);
-  padding:14px 24px;font-size:13px;font-weight:600;letter-spacing:.03em;border-radius:10px 10px 0 0;
+  appearance:none;border:0;cursor:pointer;background:rgba(255,255,255,.1);backdrop-filter:blur(8px);
+  color:rgba(255,255,255,.82);
+  padding:14px 26px;font-size:13px;font-weight:600;letter-spacing:.03em;border-radius:12px 12px 0 0;
   transition:.25s var(--ease);position:relative;
 }
-.search__tab:hover{color:#fff}
-.search__tab.is-active{background:var(--white);color:var(--bordo)}
+.search__tab:hover{background:rgba(255,255,255,.18);color:#fff}
+.search__tab.is-active{background:var(--white);color:var(--bordo);box-shadow:0 -2px 12px rgba(0,0,0,.08)}
 .search__panel{background:var(--white);border-radius:0 14px 14px 14px;box-shadow:var(--shadow-lg);
   padding:22px;display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr auto;gap:14px;align-items:end}
 .search__field{display:flex;flex-direction:column;gap:7px}
@@ -155,9 +165,9 @@
 .card__complex{font-size:13px;color:var(--ink-70);margin-top:3px}
 .card__loc{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-50);margin-top:12px}
 .card__loc svg{width:14px;height:14px;flex:none;color:var(--sand-deep)}
-.card__meta{display:flex;gap:0;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
-.card__meta div{flex:1;display:flex;flex-direction:column;gap:2px}
-.card__meta div+div{border-left:1px solid var(--line);padding-left:14px}
+.card__meta{display:flex;gap:16px;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.card__meta div{flex:1;display:flex;flex-direction:column;gap:3px}
+.card__meta div+div{border-left:1px solid var(--line);padding-left:16px}
 .card__meta b{font-size:15px;font-weight:600;color:var(--ink)}
 .card__meta span{font-size:11px;color:var(--ink-50);letter-spacing:.04em}
 

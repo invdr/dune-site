@@ -89,7 +89,7 @@ const directions = [
         </div>
 
         <aside class="hero__showcase" id="heroShowcase">
-          <article class="hero__card">
+          <a class="hero__card" href={showcase ? `/property/${showcase.slug}` : '/catalog'}>
             <Fragment set:html={showcaseMedia} />
             <div class="hero__card-body">
               <div class="hero__card-price">{showcase ? mainPrice(showcase.pricing) : '$ 680 000'}</div>
@@ -99,8 +99,9 @@ const directions = [
                 <span>{showcase ? roomsLabel(showcase.rooms) : '1 спальня'}</span><i></i>
                 <span>{showcase?.city ?? 'Dubai'}</span>
               </div>
+              <span class="hero__card-go">Смотреть объект <Fragment set:html={ICONS.arrow} /></span>
             </div>
-          </article>
+          </a>
           <div class="hero__trust">
             <div class="hero__trust-item"><b>0%</b><span>рассрочка от&nbsp;застройщика</span></div>
             <div class="hero__trust-item"><b>15 мин</b><span>ответ менеджера</span></div>
@@ -185,7 +186,7 @@ const directions = [
       </div>
       <div class="dirs">
         {directions.map((d) => (
-          <a class:list={['dir-tile', 'fade-up', d.wide && 'dir-tile--wide']} href={`/catalog?dir=${d.key}`}>
+          <a class:list={['dir-tile', 'fade-up', d.wide && 'dir-tile--wide']} href={d.key === 'new' ? '/novostroyki' : `/catalog?dir=${d.key}`}>
             <Fragment set:html={phHtml({ kind: d.ph, tone: d.tone as '' | 'ink' | 'sand', sun: d.sun, photo: null })} />
             <span class="dir-tile__idx">{d.idx}</span>
             <div class="dir-tile__count"><span class="tag tag--ghost">{d.tag}</span></div>
@@ -258,32 +259,6 @@ const directions = [
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- FEATURES -->
-    <section class="section--tight container">
-      <div class="feat">
-        <div class="feat__item fade-up">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 21V9l9-6 9 6v12M9 21v-6h6v6"></path></svg></div>
-          <b>1 200+</b><h4>Объектов в базе</h4>
-          <p>Квартиры, дома и апартаменты по четырём направлениям — обновляем ежедневно.</p>
-        </div>
-        <div class="feat__item fade-up">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4Z"></path><path d="M9 12l2 2 4-4"></path></svg></div>
-          <b>100%</b><h4>Юридическая чистота</h4>
-          <p>Проверяем каждый объект и сопровождаем сделку от задатка до регистрации.</p>
-        </div>
-        <div class="feat__item fade-up">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></div>
-          <b>1 день</b><h4>Подбор под ключ</h4>
-          <p>Сформируем подборку под ваш бюджет и задачу в течение одного дня.</p>
-        </div>
-        <div class="feat__item fade-up">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h18M3 12l4-4M3 12l4 4M21 6v12"></path></svg></div>
-          <b>0%</b><h4>Рассрочка от&nbsp;застройщика</h4>
-          <p>Беспроцентная рассрочка на новостройки в России и за рубежом.</p>
         </div>
       </div>
     </section>

@@ -34,8 +34,8 @@ describe('parseListing — Grozny complex', () => {
     expect(parsed).toMatchObject({ city: 'Грозный', country: 'RU', direction: 'NEW', currency: 'RUB' })
   })
 
-  test('delivery is normalised to a short label', () => {
-    expect(parsed.delivery).toBe('Сдача: 2026')
+  test('delivery is normalised to a bare date (label is added by the storefront)', () => {
+    expect(parsed.delivery).toBe('2026')
   })
 
   test('map marker yields address and coordinates', () => {

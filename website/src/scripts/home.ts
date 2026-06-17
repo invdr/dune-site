@@ -93,6 +93,11 @@ function initSearch(): void {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault()
+    // "Новостройки" is the ЖК catalog, a separate section from /catalog.
+    if (current === 'new') {
+      window.location.href = '/novostroyki'
+      return
+    }
     const params = new URLSearchParams()
     params.set('dir', current)
     const rooms = (document.getElementById('f-rooms') as HTMLSelectElement | null)?.value

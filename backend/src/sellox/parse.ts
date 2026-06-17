@@ -158,15 +158,16 @@ function extractAreaFrom(main: string): number | null {
   return Number.isFinite(value) && value > 0 && value <= 1_000_000 ? value : null
 }
 
-// "Год сдачи: 2026" / "Срок сдачи — IV кв. 2026" → a short, safe label. Only a
+// "Год сдачи: 2026" / "Срок сдачи — IV кв. 2026" → a short, safe value. Only a
 // year or a "<quarter> кв. <year>" form is accepted so adjacent cells (e.g. a
-// following "Этажность") can't leak into the value.
+// following "Этажность") can't leak into the value. The label ("Срок сдачи") is
+// added by the storefront, not baked into the stored value.
 function extractDelivery(main: string): string | null {
   const text = decodeEntities(stripTags(main))
   const m = text.match(/(?:год|срок)\s*сдачи\s*[:\-–—]?\s*((?:[IVX]+|\d)\s*кв\.?\s*)?(20\d{2})/i)
   if (!m) return null
   const quarter = m[1]?.trim().replace(/\s+/g, ' ')
-  return `Сдача: ${quarter ? `${quarter} ` : ''}${m[2]}`
+  return `${quarter ? `${quarter} ` : ''}${m[2]}`
 }
 
 // Listing media: uploads under sellox.ru, minus the theme chrome (logo,

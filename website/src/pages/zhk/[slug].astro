@@ -7,6 +7,7 @@ import { getComplex, getPublicSettings } from '../../lib/api'
 import { cardHtml } from '../../lib/card'
 import { complexFavoriteId, complexHeadline, resolvePlaceholderTone } from '../../lib/complexCard'
 import { metaByDirection } from '../../lib/directions'
+import { formatDelivery } from '../../lib/format'
 import { ICONS } from '../../lib/icons'
 import { phHtml } from '../../lib/placeholder'
 
@@ -57,7 +58,7 @@ const floorsAttr = complex.attributes.find((a) => /этаж/i.test(a.label))
 if (complex.areaFrom != null) keyfacts.push({ b: `от ${complex.areaFrom} м²`, s: 'площадь' })
 if (complex.pricePerMeterFrom != null || complex.priceFrom != null) keyfacts.push({ b: headline, s: 'цена' })
 if (floorsAttr) keyfacts.push({ b: floorsAttr.value, s: 'этажность' })
-if (complex.delivery) keyfacts.push({ b: complex.delivery, s: 'сдача' })
+if (complex.delivery) keyfacts.push({ b: formatDelivery(complex.delivery), s: 'срок сдачи' })
 if (complex.unitCount > 0) keyfacts.push({ b: String(complex.unitCount), s: 'в продаже' })
 
 const description = complex.description ?? ''
@@ -191,7 +192,7 @@ const mapNote = complex.address ?? locText
             <div class="price-card__permeter">{complex.unitCount} вариантов в продаже</div>
           )}
           {complex.developer && <div class="price-card__permeter">Застройщик: {complex.developer}</div>}
-          {complex.delivery && <div class="price-card__permeter">Срок сдачи: {complex.delivery}</div>}
+          {complex.delivery && <div class="price-card__permeter">Срок сдачи: {formatDelivery(complex.delivery)}</div>}
           <a class="btn btn--primary btn--block" href="#lead">Оставить заявку</a>
           {contactTel && <a class="btn btn--ghost btn--block" href={contactTel}>Заказать звонок</a>}
           <button class="btn btn--ghost btn--block" type="button" data-fav={complexFavoriteId(complex.slug)} aria-pressed="false">

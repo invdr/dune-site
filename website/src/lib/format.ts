@@ -74,6 +74,15 @@ export function formatRub(amount: number): string {
   return `${Math.round(amount).toLocaleString(RU)} ₽`
 }
 
+// Normalises a complex's delivery date for display. Legacy/admin values may bake
+// a "Сдача:"/"Срок сдачи:" label into the string — strip it, then append "год"
+// when what remains is a bare year so the UI reads "2026 год" (not "2026" or the
+// doubled "Срок сдачи: Сдача: 2026").
+export function formatDelivery(raw: string): string {
+  const value = raw.replace(/^\s*(?:срок\s+сдачи|сдача)\s*[:\-–—]?\s*/i, '').trim()
+  return /^\d{4}$/.test(value) ? `${value} год` : value
+}
+
 // --- Type-aware listing facts ------------------------------------------------
 // QuickDeal listings span apartments, houses, land and commercial units, so a
 // single apartment-shaped fact list (комнатность / этаж) misrepresents a plot
