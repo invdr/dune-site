@@ -3,12 +3,11 @@
 // the footer; everything else matches the design reference exactly.
 interface Props {
   size?: 'sm'
-  class?: string
 }
-const { size, class: className } = Astro.props
+const { size } = Astro.props
 ---
 
-<a class:list={['brand', size === 'sm' && 'brand--sm', className]} href="/" aria-label="DUNE Real Estate">
+<a class:list={['brand', size === 'sm' && 'brand--sm']} href="/" aria-label="DUNE Real Estate">
   <svg class="brand__mark" viewBox="0 0 232 130" fill="currentColor" aria-hidden="true">
     <path
       fill-rule="evenodd"
