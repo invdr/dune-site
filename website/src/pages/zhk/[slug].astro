@@ -139,7 +139,10 @@ const mapNote = complex.address ?? locText
             ))}
             {descParagraphs.length > 2 && (
               <details class="pdp__more">
-                <summary class="pdp__more-toggle">Читать далее</summary>
+                <summary class="pdp__more-toggle">
+                  <span class="pdp__more-show">Читать далее</span>
+                  <span class="pdp__more-hide">Свернуть</span>
+                </summary>
                 {descParagraphs.slice(2).map((p) => (
                   <p class="pdp__desc">{p}</p>
                 ))}

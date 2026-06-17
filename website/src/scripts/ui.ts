@@ -16,9 +16,14 @@ function initDrawer(): void {
   }
   burger.addEventListener('click', open)
   drawer.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement).matches('[data-drawer-close],.drawer__scrim')) close()
+    // `closest` (not `matches`) so a tap on the close icon's <svg>/<path>
+    // still resolves to the button — the scrim also carries data-drawer-close.
+    if ((e.target as HTMLElement).closest('[data-drawer-close]')) close()
   })
   drawer.querySelectorAll('a').forEach((a) => a.addEventListener('click', close))
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawer.classList.contains('is-open')) close()
+  })
 }
 
 function initHeader(): void {

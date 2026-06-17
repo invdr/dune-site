@@ -103,7 +103,8 @@
 .search__field.is-currency-off{opacity:.45}
 .search__field label{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-50)}
 .search__field select,.search__field input{
-  height:52px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 14px;font-size:15px;background:#fff;width:100%}
+  height:52px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 14px;font-size:15px;
+  background:#fff;color:var(--ink);width:100%}
 .search__field select{appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2348070d' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
@@ -297,7 +298,7 @@
 .catalog__sort{display:flex;align-items:center;gap:10px}
 .catalog__sort .muted{font-size:13px}
 .catalog__sort select{height:44px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 36px 0 14px;font-size:14px;
-  background:#fff;appearance:none;cursor:pointer;
+  background:#fff;color:var(--ink);appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2348070d' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 14px center}
 .catalog__grid{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(16px,1.6vw,24px)}
@@ -313,7 +314,7 @@
 .zhk-search:focus-within{border-color:var(--bordo)}
 .zhk-search__input{flex:1;border:0;outline:0;background:transparent;font-size:14px;color:var(--ink)}
 .zhk-select{height:44px;max-width:200px;border:1px solid var(--line);border-radius:var(--r-sm);
-  padding:0 34px 0 14px;font-size:14px;background:#fff;appearance:none;cursor:pointer;
+  padding:0 34px 0 14px;font-size:14px;background:#fff;color:var(--ink);appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2348070d' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 13px center}
 .zhk-toggle{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;
@@ -355,6 +356,9 @@
 .pdp__units{margin-top:8px}
 @media (max-width:980px){.zhk-grid{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:600px){.zhk-grid{grid-template-columns:1fr}}
+/* On phones the filter bar wraps to several rows; pinned it would eat half the
+   viewport on scroll, so let it scroll away instead of sticking. */
+@media (max-width:760px){.zhk-bar{position:static}}
 
 /* inverted "didn't find it?" call-to-action band */
 .cta-band{background:var(--bordo);color:#fff}
@@ -417,6 +421,10 @@
 .pdp__more-toggle::-webkit-details-marker{display:none}
 .pdp__more-toggle::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .2s}
 .pdp__more[open]>.pdp__more-toggle::after{transform:rotate(-135deg)}
+/* native <details> keeps one summary — swap the label on open/closed state */
+.pdp__more-hide{display:none}
+.pdp__more[open]>.pdp__more-toggle>.pdp__more-show{display:none}
+.pdp__more[open]>.pdp__more-toggle>.pdp__more-hide{display:inline}
 .pdp__aside{position:sticky;top:calc(var(--header-h) + 20px);display:flex;flex-direction:column;gap:18px}
 .price-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:28px;box-shadow:var(--shadow-sm)}
 .price-card__price{font-size:34px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
@@ -434,7 +442,7 @@
   display:flex;align-items:center;justify-content:center;font-weight:600;font-size:18px;flex:none;object-fit:cover}
 .agent__info b{display:block;font-size:15px;font-weight:600}
 .agent__info span{font-size:13px;color:var(--ink-50)}
-.map-stub{height:240px;border-radius:var(--r);overflow:hidden;position:relative;border:1px solid var(--line);
+.map-stub{height:410px;border-radius:var(--r);overflow:hidden;position:relative;border:0;box-shadow:var(--shadow);
   background:linear-gradient(160deg,#2a2a2a,#0e0e0e)}
 /* real Yandex map fills the box; the pin below shows as a fallback if it can't load */
 .map-stub iframe{position:absolute;inset:0;width:100%;height:100%;border:0;z-index:2}
@@ -471,11 +479,14 @@
   /* search collapses into normal flow, no overlap */
   .search{transform:none;margin-top:clamp(28px,6vw,40px)}
   .hero-spacer{display:none}
-  .search__panel{grid-template-columns:1fr 1fr;border-radius:14px}
+  /* tabs become standalone pills above a fully-rounded panel — avoids the
+     "clipped folder-tab" notch where a square tab bottom met a rounded panel */
+  .search__panel{grid-template-columns:1fr 1fr;border-radius:16px;padding:20px 18px 22px}
   .search__submit{grid-column:1/-1}
-  .search__tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .search__tabs{gap:8px;padding:0 0 10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .search__tabs::-webkit-scrollbar{display:none}
-  .search__tab{white-space:nowrap;flex:none}
+  .search__tab{white-space:nowrap;flex:none;border-radius:10px}
+  .search__tab.is-active{box-shadow:0 8px 24px -12px rgba(0,0,0,.5)}
   .hero__inner{padding-bottom:clamp(36px,8vw,56px)}
   /* hero stacks: text over showcase */
   .hero__inner{grid-template-columns:1fr;gap:30px}

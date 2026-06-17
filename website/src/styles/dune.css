@@ -162,22 +162,49 @@ h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.01em;line-height:1.12}
 /* mobile drawer */
 .drawer{position:fixed;inset:0;z-index:80;display:none}
 .drawer.is-open{display:block}
-.drawer__scrim{position:absolute;inset:0;background:rgba(25,25,25,.5);backdrop-filter:blur(2px)}
-.drawer__panel{position:absolute;top:0;right:0;height:100%;width:min(86vw,360px);
-  background:var(--bordo);color:#fff;display:flex;flex-direction:column;gap:6px;
-  padding:calc(24px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right))
-    calc(24px + env(safe-area-inset-bottom)) 24px;
+.drawer__scrim{position:absolute;inset:0;background:rgba(25,25,25,.55);backdrop-filter:blur(3px)}
+.drawer__panel{position:absolute;top:0;right:0;height:100%;width:min(88vw,380px);
+  color:#fff;display:flex;flex-direction:column;
+  background:
+    radial-gradient(120% 60% at 90% 0%, rgba(203,187,160,.12) 0%, transparent 55%),
+    linear-gradient(180deg, var(--bordo) 0%, var(--bordo-deep) 100%);
+  border-left:1px solid rgba(203,187,160,.16);box-shadow:-30px 0 80px -40px rgba(0,0,0,.7);
+  padding:calc(22px + env(safe-area-inset-top)) calc(22px + env(safe-area-inset-right))
+    calc(22px + env(safe-area-inset-bottom)) 22px;
   transform:translateX(100%);transition:transform .4s var(--ease);overflow:auto}
 .drawer.is-open .drawer__panel{transform:none}
-.drawer__head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.drawer__head{display:flex;justify-content:space-between;align-items:center;
+  padding-bottom:18px;margin-bottom:10px;border-bottom:1px solid var(--line-light)}
 .drawer__close{width:44px;height:44px;border:1px solid var(--line-light);border-radius:var(--r-sm);
-  background:transparent;color:#fff;display:flex;align-items:center;justify-content:center}
-.drawer a.dlink{padding:16px 8px;border-bottom:1px solid var(--line-light);font-size:17px;font-weight:500;
-  display:flex;justify-content:space-between;align-items:center}
-.drawer a.dlink span{color:var(--sand)}
-.drawer__cta{margin-top:24px}
-.drawer__phone{margin-top:24px;color:var(--sand);font-size:18px;font-weight:600}
-.drawer__hours{color:rgba(255,255,255,.6);font-size:13px}
+  background:rgba(255,255,255,.04);color:#fff;display:flex;align-items:center;justify-content:center;
+  transition:.25s var(--ease)}
+.drawer__close:hover{background:rgba(255,255,255,.12);border-color:var(--sand)}
+
+/* primary directions — large editorial links with index + arrow */
+.drawer__nav{display:flex;flex-direction:column}
+.drawer a.dlink{display:flex;align-items:center;gap:16px;padding:17px 6px;
+  border-bottom:1px solid var(--line-light);font-size:19px;font-weight:500;letter-spacing:-.01em;
+  color:#fff;transition:padding .25s var(--ease),color .25s var(--ease)}
+.dlink__n{font-style:normal;font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--sand);
+  width:22px;flex:none}
+.dlink__t{flex:1;min-width:0}
+.dlink__go{width:20px;height:20px;flex:none;color:var(--sand);opacity:0;transform:translateX(-6px);
+  transition:.25s var(--ease)}
+.drawer a.dlink:hover,.drawer a.dlink:focus-visible{color:var(--sand);padding-left:12px}
+.drawer a.dlink:hover .dlink__go,.drawer a.dlink:focus-visible .dlink__go{opacity:1;transform:none}
+
+/* secondary links — compact inline row */
+.drawer__sub{display:flex;flex-wrap:wrap;gap:8px 22px;padding:18px 6px 4px}
+.drawer__sub a{font-size:14px;color:rgba(255,255,255,.7);transition:color .2s var(--ease)}
+.drawer__sub a:hover{color:var(--sand)}
+
+/* footer block pinned to the bottom: prominent CTA + tappable phone */
+.drawer__foot{margin-top:auto;padding-top:22px}
+.drawer__foot .drawer__cta{height:56px;font-size:13px}
+.drawer__phone{display:flex;align-items:center;gap:10px;margin-top:18px;color:var(--sand);
+  font-size:18px;font-weight:600}
+.drawer__phone svg{width:18px;height:18px;flex:none}
+.drawer__hours{color:rgba(255,255,255,.6);font-size:13px;margin-top:6px}
 
 /* ---------- footer ---------- */
 .site-footer{background:var(--ink);color:rgba(255,255,255,.7)}
