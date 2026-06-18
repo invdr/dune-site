@@ -168,6 +168,14 @@
 - Concrete DigitalOcean spec defaults belong in `scripts/prepare-do-specs.mjs` and `.do/*.yaml.example`; update README/docs alongside those scripts.
 - Before deployment work, read the relevant docs and use repository scripts/generators rather than provider details from memory.
 - Before deployment or cloud-resource updates, verify the release source with `git remote -v`, `git status --short --branch`, and the configured deployment branch/commit. If the worktree is dirty, the branch is not pushed/synced, or the release source is ambiguous, stop and report the blocker. Do not run `git reset`, `git checkout --`, `git clean`, `git stash`, or equivalent cleanup to make deployment possible unless the user explicitly requested that exact action.
+- Production runs on a self-managed VPS (`dunestate.ru`), released with `scripts/deploy-vps.sh` run **on the server**, not from CI or this sandbox. The script ships directly from any pushed branch via `DEPLOY_BRANCH` — no merge to `main` is required. When the user asks to update prod, do not ask how to deploy: confirm the working branch is committed and pushed, then hand them the exact command for the current branch:
+
+  ```bash
+  cd /opt/dune
+  DEPLOY_BRANCH=<current-feature-branch> ./scripts/deploy-vps.sh
+  ```
+
+  The deploy runs on the VPS (pull → install → prisma migrate deploy → build front-ends → restart systemd services); this environment has no SSH access to the server, so provide the command rather than running it. Optional flags live in `scripts/deploy-vps.sh` / `docs/DEPLOYMENT_VPS.md` (`SKIP_BUILD=1`, `NO_RESTART=1`, `LOW_MEM=1`). The DigitalOcean App Platform path in `docs/DEPLOYMENT.md` remains the documented managed alternative, not the current prod.
 - Keep durable storage and media decisions in `docs/STORAGE.md` and provider-specific deployment docs.
 
 ## UI And Design
