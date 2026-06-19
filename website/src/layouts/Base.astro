@@ -14,6 +14,7 @@ interface Props {
   skipTarget?: string
   companyPhone?: string | null
   companyContact?: string | null
+  bodyClass?: string
 }
 
 const {
@@ -25,6 +26,7 @@ const {
   skipTarget = '#main',
   companyPhone,
   companyContact,
+  bodyClass,
 } = Astro.props
 
 const siteOrigin = Astro.site?.origin ?? 'https://dunestate.ru'
@@ -65,7 +67,7 @@ const imageUrl = image.startsWith('http') ? image : new URL(image, siteOrigin).h
       rel="stylesheet"
     />
   </head>
-  <body>
+  <body class:list={[bodyClass]}>
     <a class="skip-link" href={skipTarget}>К содержимому</a>
     <Header active={active} phone={companyPhone ?? undefined} />
     <slot />

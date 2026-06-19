@@ -466,6 +466,23 @@
   .plans{grid-template-columns:1fr}
 }
 
+/* mobile sticky action bar on property/complex pages — keeps "Позвонить" and
+   "Оставить заявку" in thumb reach (header phone + aside CTAs scroll away) */
+.pdp-actionbar{display:none}
+@media (max-width:760px){
+  .pdp-actionbar{position:fixed;left:0;right:0;bottom:0;z-index:70;display:flex;gap:10px;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(255,255,255,.96);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);box-shadow:0 -10px 30px -20px rgba(0,0,0,.5)}
+  .pdp-actionbar__call{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    height:52px;padding:0 18px;border:1px solid var(--line);border-radius:var(--r-sm);
+    background:#fff;color:var(--bordo);font-size:14px;font-weight:600}
+  .pdp-actionbar__call svg{width:18px;height:18px}
+  .pdp-actionbar__lead{flex:1;height:52px}
+  /* reserve room so the fixed bar never covers the footer's last line */
+  body.has-actionbar{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+}
+
 /* ---------- hero spacer (compensates overlapping search on desktop) ---------- */
 .hero-spacer{height:clamp(14px,1.8vw,26px)}
 

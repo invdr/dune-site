@@ -46,6 +46,35 @@
   }
 }
 
+/* mobile-only quick-call button — the header phone number is hidden < 760px,
+   so give thumbs a one-tap call instead */
+.header-call {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line-light);
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  transition: 0.25s var(--ease);
+}
+.header-call svg {
+  width: 20px;
+  height: 20px;
+}
+.header-call:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--sand);
+  color: var(--sand);
+}
+@media (max-width: 760px) {
+  .header-call {
+    display: inline-flex;
+  }
+}
+
 /* consent block in the lead form */
 .lead-consent-row {
   display: flex;
