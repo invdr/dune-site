@@ -512,7 +512,6 @@
   .feat{grid-template-columns:1fr}
   .pdp__keyfacts{grid-template-columns:1fr 1fr}
   .search__panel{grid-template-columns:1fr}
-  .hero__stats{gap:24px 36px}
   .hstat b{font-size:30px}
   .hero__pill{white-space:normal}
   .install__left,.install__right{padding:28px 22px}
@@ -520,8 +519,38 @@
 }
 
 /* ============================================================
+   PHONES — centered hero first screen
+   ============================================================ */
+@media (max-width:640px){
+  /* tighten the hero so the primary CTA sits higher (above the fold) */
+  .hero__inner{padding-top:18px;padding-bottom:34px;gap:22px}
+  .hero__text{align-items:center;text-align:center}
+  .hero h1{font-size:clamp(32px,7.5vw,40px);margin-top:16px;max-width:18ch;margin-inline:auto}
+  .hero__sub{margin-top:14px;margin-inline:auto}
+  /* centered, full-width stacked CTAs read as intentional on a phone */
+  .hero__actions{flex-direction:column;align-items:stretch;gap:12px;margin-top:22px;
+    width:100%;max-width:340px;margin-inline:auto}
+  .hero__actions .btn{width:100%}
+  /* even 2×2 stat grid instead of ragged flex-wrap */
+  .hero__stats{display:grid;grid-template-columns:1fr 1fr;gap:22px 16px;margin-top:26px;
+    width:100%;max-width:360px;margin-inline:auto}
+  .hstat{align-items:center;text-align:center}
+  .hstat span{max-width:18ch}
+  /* showcase stacks under the centered text: card on top, trust row below */
+  .hero__showcase{flex-direction:column}
+}
+
+/* ============================================================
    MOBILE TOUCH TARGETS (≥44px) & TAP RESPONSIVENESS
    ============================================================ */
+/* iOS Safari zooms the page when a focused field is < 16px — keep form
+   controls at 16px on phones so tapping a field never triggers a zoom jump */
+@media (max-width:760px){
+  .search__field select,.search__field input,
+  .frow input,.zhk-price__in,.zhk-search__input,
+  .field input,.field select,.field textarea,
+  .filters .fselect,.catalog__sort select,.zhk-select{font-size:16px}
+}
 /* remove the 300ms tap delay / double-tap zoom on controls (all viewports) */
 a,button,.chip,.search__tab,.tabs__btn,.card__fav,.burger,.drawer__close,
 .switch,input,select,textarea{touch-action:manipulation}
